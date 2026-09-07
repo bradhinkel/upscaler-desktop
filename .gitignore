@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+release/
+out/
+
+# Fetched binaries and models (downloaded at build time)
+resources/bin/*
+resources/models/*
+!resources/bin/.gitkeep
+!resources/models/.gitkeep
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated images / outputs
+outputs/
+
+# Logs
+*.log
+npm-debug.log*

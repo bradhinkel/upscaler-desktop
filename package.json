@@ -1,0 +1,64 @@
+{
+  "name": "upscaler-desktop",
+  "version": "0.1.0",
+  "description": "Real-ESRGAN desktop image upscaler for photographers",
+  "main": "./dist/main/src/main/index.js",
+  "author": "Brad Hinkel",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fetch-binaries": "tsx scripts/fetch-binaries.ts",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^3.1.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  },
+  "build": {
+    "appId": "com.bradhinkel.upscaler-desktop",
+    "productName": "Upscaler Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin"
+      },
+      {
+        "from": "resources/models",
+        "to": "models"
+      }
+    ]
+  }
+}
