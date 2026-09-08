@@ -5,11 +5,13 @@ import os from 'os';
 import { NcnnEngine } from './engine/ncnn-engine';
 import { EngineManager } from './engine/engine-manager';
 import { JobOrchestrator } from './engine/job-orchestrator';
+import { MetricsService } from './metrics-service';
 import { IPC, DEFAULT_SETTINGS } from '../shared/ipc';
 import type { AppSettings, UpscaleRequest, SaveRequest, UpscaleResult } from '../shared/ipc';
 
 let mainWindow: BrowserWindow | null = null;
 let orchestrator: JobOrchestrator;
+let metricsService: MetricsService;
 let settings: AppSettings = { ...DEFAULT_SETTINGS };
 
 // Settings persistence
@@ -85,6 +87,12 @@ function setupEngine(): void {
   });
 
   orchestrator = new JobOrchestrator(manager);
+
+  // Initialize LPIPS metrics (non-blocking — app works without it)
+  metricsService = new MetricsService(isDev(), appRoot);
+  metricsService.initialize().then((ok) => {
+    if (!ok) console.warn('LPIPS metrics unavailable — lpips.onnx not found or failed to load');
+  });
 }
 
 function setupIPC(): void {
@@ -200,6 +208,14 @@ function setupIPC(): void {
     const mime = mimeTypes[ext] || 'image/png';
     return `data:${mime};base64,${data.toString('base64')}`;
   });
+
+  // LPIPS scoring (non-blocking, returns null if unavailable)
+  ipcMain.handle(
+    IPC.COMPUTE_LPIPS,
+    async (_event, referencePath: string, distortedPath: string): Promise<number | null> => {
+      return metricsService.computeLpips(referencePath, distortedPath);
+    },
+  );
 
   // Settings
   ipcMain.handle(IPC.GET_SETTINGS, () => settings);

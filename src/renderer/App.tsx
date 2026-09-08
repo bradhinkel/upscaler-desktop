@@ -17,6 +17,9 @@ export function App(): React.ReactElement {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [fitMode, setFitMode] = useState<'fit' | '1:1'>('fit');
+  const [referencePath, setReferencePath] = useState<string | null>(null);
+  const [lpipsScore, setLpipsScore] = useState<number | null>(null);
+  const [lpipsComputing, setLpipsComputing] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
 
   // Load settings on mount
@@ -107,16 +110,42 @@ export function App(): React.ReactElement {
       const url = await readImage(result.outputPath);
       setOutputDataUrl(url);
       setState('done');
+      setLpipsScore(null);
+
+      // Compute LPIPS in background if reference is set
+      if (referencePath) {
+        setLpipsComputing(true);
+        window.api.computeLpips(referencePath, result.outputPath).then((score) => {
+          setLpipsScore(score);
+          setLpipsComputing(false);
+        });
+      }
     } else {
       setErrorMsg(result.error || 'Unknown error');
       setState('error');
     }
-  }, [inputPath, settings, readImage]);
+  }, [inputPath, settings, readImage, referencePath]);
 
   const handleCancel = useCallback(() => {
     window.api.cancel();
     setState('idle');
   }, []);
+
+  const handleLoadReference = useCallback(async () => {
+    const filePath = await window.api.openFile();
+    if (filePath) {
+      setReferencePath(filePath);
+      setLpipsScore(null);
+      // If we already have an output, compute LPIPS immediately
+      if (outputPath) {
+        setLpipsComputing(true);
+        window.api.computeLpips(filePath, outputPath).then((score) => {
+          setLpipsScore(score);
+          setLpipsComputing(false);
+        });
+      }
+    }
+  }, [outputPath]);
 
   const handleSave = useCallback(async () => {
     if (!outputPath || !settings) return;
@@ -226,6 +255,39 @@ export function App(): React.ReactElement {
             />
           </div>
         )}
+
+        {/* Reference image for LPIPS scoring */}
+        <div style={styles.section}>
+          <label style={styles.label}>Reference (for LPIPS)</label>
+          <button onClick={handleLoadReference} style={{ ...styles.button, fontSize: 12 }}>
+            {referencePath ? 'Change Reference' : 'Load Reference'}
+          </button>
+          {referencePath && (
+            <div style={styles.fileInfo}>
+              {referencePath.split(/[\\/]/).pop()}
+              <span
+                onClick={() => {
+                  setReferencePath(null);
+                  setLpipsScore(null);
+                }}
+                style={{ marginLeft: 8, cursor: 'pointer', color: '#888' }}
+              >
+                x
+              </span>
+            </div>
+          )}
+          {lpipsComputing && (
+            <div style={{ ...styles.fileInfo, color: '#4a6cf7' }}>Computing LPIPS...</div>
+          )}
+          {lpipsScore !== null && (
+            <div style={{ marginTop: 4, padding: '4px 8px', background: '#2a2a4a', borderRadius: 4, fontSize: 13 }}>
+              <span style={{ color: '#4caf50', fontWeight: 600 }}>LPIPS: {lpipsScore.toFixed(4)}</span>
+              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
+                Lower = more similar to reference (0 = identical)
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Action buttons */}
         <div style={{ ...styles.section, marginTop: 'auto' }}>

@@ -1,0 +1,126 @@
+{
+  "pairs": [
+    {
+      "image": "Alhambra_fine-arch.jpg",
+      "python_lpips": 0.337913,
+      "onnx_lpips": 0.337913,
+      "delta": 0.0
+    },
+    {
+      "image": "Athens_Street.jpg",
+      "python_lpips": 0.176106,
+      "onnx_lpips": 0.176106,
+      "delta": 0.0
+    },
+    {
+      "image": "Bison.jpg",
+      "python_lpips": 0.372992,
+      "onnx_lpips": 0.372992,
+      "delta": 0.0
+    },
+    {
+      "image": "California_Wildflowers.jpg",
+      "python_lpips": 0.361381,
+      "onnx_lpips": NaN,
+      "delta": NaN
+    },
+    {
+      "image": "Cat_Eyes-hf-texture.jpg",
+      "python_lpips": 0.293987,
+      "onnx_lpips": 0.293987,
+      "delta": 0.0
+    },
+    {
+      "image": "Death_Valley.jpg",
+      "python_lpips": 0.263569,
+      "onnx_lpips": 0.263569,
+      "delta": 0.0
+    },
+    {
+      "image": "Deer.jpg",
+      "python_lpips": 0.200561,
+      "onnx_lpips": 0.200561,
+      "delta": 0.0
+    },
+    {
+      "image": "Dubai_fine-arch.jpg",
+      "python_lpips": 0.180542,
+      "onnx_lpips": 0.180541,
+      "delta": 0.0
+    },
+    {
+      "image": "Duomo_fine-arch.jpg",
+      "python_lpips": 0.213074,
+      "onnx_lpips": 0.213074,
+      "delta": 0.0
+    },
+    {
+      "image": "Dutch_Street.jpg",
+      "python_lpips": 0.222124,
+      "onnx_lpips": NaN,
+      "delta": NaN
+    },
+    {
+      "image": "Fatehpur_Sikri.jpg",
+      "python_lpips": 0.230909,
+      "onnx_lpips": 0.230909,
+      "delta": 0.0
+    },
+    {
+      "image": "Ferret.jpg",
+      "python_lpips": 0.152599,
+      "onnx_lpips": 0.152599,
+      "delta": 0.0
+    },
+    {
+      "image": "Florence.jpg",
+      "python_lpips": 0.147269,
+      "onnx_lpips": 0.147269,
+      "delta": 0.0
+    },
+    {
+      "image": "Forest_hf-texture.jpg",
+      "python_lpips": 0.33579,
+      "onnx_lpips": 0.33579,
+      "delta": 0.0
+    },
+    {
+      "image": "Grain_hf-texture.jpg",
+      "python_lpips": 0.221075,
+      "onnx_lpips": 0.221075,
+      "delta": 0.0
+    },
+    {
+      "image": "Gramercy_Park_noise.jpg",
+      "python_lpips": 0.257129,
+      "onnx_lpips": 0.257129,
+      "delta": 0.0
+    },
+    {
+      "image": "Greek_Island_Town.jpg",
+      "python_lpips": 0.269123,
+      "onnx_lpips": 0.269123,
+      "delta": 0.0
+    },
+    {
+      "image": "Grey_Heron.jpg",
+      "python_lpips": 0.210581,
+      "onnx_lpips": NaN,
+      "delta": NaN
+    },
+    {
+      "image": "Grizzly_Bear.jpg",
+      "python_lpips": 0.28925,
+      "onnx_lpips": 0.28925,
+      "delta": 0.0
+    },
+    {
+      "image": "Horses.jpg",
+      "python_lpips": 0.315056,
+      "onnx_lpips": 0.315056,
+      "delta": 0.0
+    }
+  ],
+  "mean_delta": NaN,
+  "max_delta": 0.0
+}

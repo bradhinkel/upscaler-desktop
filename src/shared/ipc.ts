@@ -54,6 +54,7 @@ export const IPC = {
   SET_SETTINGS: 'set-settings',
 
   READ_IMAGE: 'read-image',
+  COMPUTE_LPIPS: 'compute-lpips',
 
   // Main → Renderer (send)
   PROGRESS: 'progress',
@@ -66,6 +67,7 @@ export interface ElectronAPI {
   save(request: SaveRequest): Promise<{ success: boolean; path?: string; error?: string }>;
   openFile(): Promise<string | null>;
   readImage(filePath: string): Promise<string>;
+  computeLpips(referencePath: string, distortedPath: string): Promise<number | null>;
   getSettings(): Promise<AppSettings>;
   setSettings(settings: Partial<AppSettings>): Promise<void>;
   onProgress(callback: (event: ProgressEvent) => void): () => void;

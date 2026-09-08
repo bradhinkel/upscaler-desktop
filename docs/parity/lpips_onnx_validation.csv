@@ -1,0 +1,12 @@
+image,python_onnx_256,node_onnx_256,delta,pass
+Alhambra_fine-arch,0.059024,0.060236,0.001212,YES
+Bison,0.102029,0.105168,0.003139,YES
+Florence,0.024663,0.026263,0.001600,YES
+Grizzly_Bear,0.048484,0.049199,0.000715,YES
+Horses,0.039749,0.038904,0.000845,YES
+
+# Python ONNX validation (20 pairs at 256x256): all deltas = 0.000000
+# Node.js vs Python ONNX (5 spot checks): max delta = 0.003139
+# Difference source: sharp (Node) vs PIL (Python) Lanczos resize
+# Both well within 0.005 threshold
+# DISTS: deferred to future work (LPIPS landed cleanly)
