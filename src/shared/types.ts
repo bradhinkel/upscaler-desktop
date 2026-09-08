@@ -66,3 +66,46 @@ export interface EngineLifecycle {
   /** Shut down the engine and clean up resources. */
   shutdown(): Promise<void>;
 }
+
+/** Callback for receiving progress updates during a job. */
+export type ProgressCallback = (event: ProgressEvent) => void;
+
+/** Error categories for structured error handling. */
+export type EngineErrorType =
+  | 'no-vulkan'
+  | 'gpu-oom'
+  | 'bad-input'
+  | 'binary-missing'
+  | 'disk-full'
+  | 'cancelled'
+  | 'unknown';
+
+/** Structured engine error with type and user-facing message. */
+export class EngineError extends Error {
+  constructor(
+    public readonly type: EngineErrorType,
+    message: string,
+    public readonly userMessage: string,
+  ) {
+    super(message);
+    this.name = 'EngineError';
+  }
+}
+
+/**
+ * Full engine interface combining lifecycle and job execution.
+ * An engine must implement this to be managed by EngineManager.
+ */
+export interface Engine extends EngineLifecycle {
+  /** Engine capabilities (scales, models, GPU requirement). */
+  capabilities(): EngineCapabilities;
+
+  /**
+   * Execute a single-pass upscale job.
+   * @param spec - The job specification.
+   * @param onProgress - Optional progress callback.
+   * @param signal - Optional AbortSignal for cancellation.
+   * @returns The job result.
+   */
+  run(spec: JobSpec, onProgress?: ProgressCallback, signal?: AbortSignal): Promise<JobResult>;
+}

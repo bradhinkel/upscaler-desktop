@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch-binaries": "tsx scripts/fetch-binaries.ts",
+    "upscale": "tsx scripts/upscale.ts",
     "dist": "electron-builder"
   },
   "dependencies": {
