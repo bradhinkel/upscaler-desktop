@@ -29,6 +29,9 @@ Thumbs.db
 # Generated images / outputs
 outputs/
 
+# Playwright test results
+test-results/
+
 # Logs
 *.log
 npm-debug.log*

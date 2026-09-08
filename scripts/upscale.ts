@@ -1,21 +1,28 @@
 /**
  * CLI harness for the upscale engine.
- * Usage: npm run upscale -- -i input.jpg -o output.png [-m model] [-t tileSize]
+ * Usage: npm run upscale -- -i input.jpg -o output.png [-s scale] [-m model] [-t tileSize]
  */
 
 import path from 'path';
 import { NcnnEngine } from '../src/main/engine/ncnn-engine';
 import { EngineManager } from '../src/main/engine/engine-manager';
 import { JobOrchestrator } from '../src/main/engine/job-orchestrator';
-import type { OutputFormat } from '../src/shared/types';
+import type { OutputFormat, ScaleFactor } from '../src/shared/types';
 
 function parseArgs(argv: string[]): {
   input: string;
   output: string;
+  scale: ScaleFactor;
   model: string;
   tileSize: number;
 } {
-  const args = { input: '', output: '', model: 'realesrgan-x4plus', tileSize: 0 };
+  const args: { input: string; output: string; scale: ScaleFactor; model: string; tileSize: number } = {
+    input: '',
+    output: '',
+    scale: 4,
+    model: 'realesrgan-x4plus',
+    tileSize: 0,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
@@ -26,6 +33,10 @@ function parseArgs(argv: string[]): {
       case '-o':
       case '--output':
         args.output = argv[++i];
+        break;
+      case '-s':
+      case '--scale':
+        args.scale = parseInt(argv[++i], 10) as ScaleFactor;
         break;
       case '-m':
       case '--model':
@@ -39,7 +50,7 @@ function parseArgs(argv: string[]): {
   }
 
   if (!args.input || !args.output) {
-    console.error('Usage: npm run upscale -- -i <input> -o <output> [-m model] [-t tileSize]');
+    console.error('Usage: npm run upscale -- -i <input> -o <output> [-s 4|8|16] [-m model] [-t tileSize]');
     process.exit(1);
   }
 
@@ -72,6 +83,7 @@ async function main(): Promise<void> {
 
   console.log(`Upscaling: ${inputPath}`);
   console.log(`Output:    ${outputPath}`);
+  console.log(`Scale:     ${args.scale}×`);
   console.log(`Model:     ${args.model}`);
   console.log(`Tile size: ${args.tileSize || 'auto'}`);
   console.log();
@@ -80,7 +92,7 @@ async function main(): Promise<void> {
     {
       inputPath,
       outputPath,
-      scale: 4,
+      scale: args.scale,
       model: args.model,
       tileSize: args.tileSize,
       outputFormat: inferFormat(outputPath),
