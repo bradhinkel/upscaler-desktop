@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 
-# Build output
+# Build output (electron-vite outputs to out/, electron-builder to release/)
 dist/
 release/
 out/

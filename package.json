@@ -2,7 +2,7 @@
   "name": "upscaler-desktop",
   "version": "0.1.0",
   "description": "Real-ESRGAN desktop image upscaler for photographers",
-  "main": "./dist/main/src/main/index.js",
+  "main": "./out/main/index.js",
   "author": "Brad Hinkel",
   "license": "MIT",
   "scripts": {
