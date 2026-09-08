@@ -53,6 +53,8 @@ export const IPC = {
   GET_SETTINGS: 'get-settings',
   SET_SETTINGS: 'set-settings',
 
+  READ_IMAGE: 'read-image',
+
   // Main → Renderer (send)
   PROGRESS: 'progress',
 } as const;
@@ -63,6 +65,7 @@ export interface ElectronAPI {
   cancel(): void;
   save(request: SaveRequest): Promise<{ success: boolean; path?: string; error?: string }>;
   openFile(): Promise<string | null>;
+  readImage(filePath: string): Promise<string>;
   getSettings(): Promise<AppSettings>;
   setSettings(settings: Partial<AppSettings>): Promise<void>;
   onProgress(callback: (event: ProgressEvent) => void): () => void;

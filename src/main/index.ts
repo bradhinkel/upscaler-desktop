@@ -185,6 +185,22 @@ function setupIPC(): void {
     return result.filePaths[0];
   });
 
+  // Read image as base64 data URL (renderer can't access file:// directly)
+  ipcMain.handle(IPC.READ_IMAGE, async (_event, filePath: string): Promise<string> => {
+    const data = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.tiff': 'image/tiff',
+      '.tif': 'image/tiff',
+    };
+    const mime = mimeTypes[ext] || 'image/png';
+    return `data:${mime};base64,${data.toString('base64')}`;
+  });
+
   // Settings
   ipcMain.handle(IPC.GET_SETTINGS, () => settings);
   ipcMain.handle(IPC.SET_SETTINGS, (_event, partial: Partial<AppSettings>) => {

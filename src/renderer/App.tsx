@@ -33,29 +33,22 @@ export function App(): React.ReactElement {
     return cleanup;
   }, []);
 
-  // Convert file path to data URL for display
-  const pathToDataUrl = useCallback(async (filePath: string): Promise<string> => {
-    const response = await fetch(`file://${filePath.replace(/\\/g, '/')}`);
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
+  // Read image file via IPC (renderer can't access file:// directly)
+  const readImage = useCallback(async (filePath: string): Promise<string> => {
+    return window.api.readImage(filePath);
   }, []);
 
   const loadImage = useCallback(
     async (filePath: string) => {
       setInputPath(filePath);
-      try {
-        const url = await pathToDataUrl(filePath);
-        setInputDataUrl(url);
-      } catch {
-        // Fallback: use file protocol directly
-        setInputDataUrl(`file://${filePath.replace(/\\/g, '/')}`);
-      }
+      const url = await readImage(filePath);
+      setInputDataUrl(url);
       setOutputPath(null);
       setOutputDataUrl(null);
       setState('idle');
       setErrorMsg('');
     },
-    [pathToDataUrl],
+    [readImage],
   );
 
   // Drag and drop
@@ -111,18 +104,14 @@ export function App(): React.ReactElement {
     if (result.success && result.outputPath) {
       setOutputPath(result.outputPath);
       setElapsedMs(result.elapsedMs);
-      try {
-        const url = await pathToDataUrl(result.outputPath);
-        setOutputDataUrl(url);
-      } catch {
-        setOutputDataUrl(`file://${result.outputPath.replace(/\\/g, '/')}`);
-      }
+      const url = await readImage(result.outputPath);
+      setOutputDataUrl(url);
       setState('done');
     } else {
       setErrorMsg(result.error || 'Unknown error');
       setState('error');
     }
-  }, [inputPath, settings, pathToDataUrl]);
+  }, [inputPath, settings, readImage]);
 
   const handleCancel = useCallback(() => {
     window.api.cancel();

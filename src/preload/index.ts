@@ -8,6 +8,7 @@ const api: ElectronAPI = {
   cancel: () => ipcRenderer.send(IPC.CANCEL),
   save: (request: SaveRequest) => ipcRenderer.invoke(IPC.SAVE, request),
   openFile: () => ipcRenderer.invoke(IPC.OPEN_FILE),
+  readImage: (filePath: string) => ipcRenderer.invoke(IPC.READ_IMAGE, filePath),
   getSettings: () => ipcRenderer.invoke(IPC.GET_SETTINGS),
   setSettings: (settings: Partial<AppSettings>) => ipcRenderer.invoke(IPC.SET_SETTINGS, settings),
   onProgress: (callback: (event: ProgressEvent) => void) => {
