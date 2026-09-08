@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "fetch-binaries": "tsx scripts/fetch-binaries.ts",
     "upscale": "tsx scripts/upscale.ts",
-    "dist": "electron-builder"
+    "predist": "electron-vite build",
+    "dist": "electron-builder --win"
   },
   "dependencies": {
     "onnxruntime-node": "^1.29.0",
@@ -34,7 +35,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.0.0",
@@ -49,10 +50,19 @@
     "appId": "com.bradhinkel.upscaler-desktop",
     "productName": "Upscaler Desktop",
     "directories": {
+      "buildResources": "build",
       "output": "release"
     },
+    "files": [
+      "out/**/*"
+    ],
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
     },
     "extraResources": [
       {
@@ -66,6 +76,10 @@
       {
         "from": "resources/lpips.onnx",
         "to": "lpips.onnx"
+      },
+      {
+        "from": "resources/lpips.onnx.data",
+        "to": "lpips.onnx.data"
       }
     ]
   }
