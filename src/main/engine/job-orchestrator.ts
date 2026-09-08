@@ -2,7 +2,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { EngineManager } from './engine-manager';
-import { JobSpec, JobResult, ProgressCallback } from '../../shared/types';
+import { JobSpec, JobResult, ProgressCallback, EngineError } from '../../shared/types';
+import type { BatchItemResult, BatchSummary } from '../../shared/ipc';
+import { validateInput, listImageFiles } from './input-validator';
 
 /**
  * Orchestrates upscale jobs. Supports single-pass (4×) and two-pass (8×/16×).
@@ -28,20 +30,135 @@ export class JobOrchestrator {
     this.tempFiles = [];
 
     try {
-      if (spec.scale === 4) {
-        return await this.singlePass(spec, onProgress);
-      } else {
-        return await this.twoPass(spec, onProgress);
-      }
+      return await this.runSpec(spec, onProgress);
     } finally {
       this.cleanupTempFiles();
       this.activeController = null;
     }
   }
 
-  /** Cancel the currently running job. */
+  /**
+   * Submit a batch of images from a directory.
+   * Processes sequentially; failures are isolated per-image.
+   */
+  async submitBatch(
+    inputDir: string,
+    outputDir: string,
+    scale: JobSpec['scale'],
+    model: string,
+    tileSize: number,
+    outputFormat: JobSpec['outputFormat'],
+    jpegQuality: number,
+    onBatchProgress?: (current: number, total: number, file: string, filePercent: number, message?: string) => void,
+  ): Promise<BatchSummary> {
+    const startTime = Date.now();
+    const files = listImageFiles(inputDir);
+
+    if (files.length === 0) {
+      return { total: 0, succeeded: 0, failed: 0, skipped: 0, items: [], totalElapsedMs: 0 };
+    }
+
+    fs.mkdirSync(outputDir, { recursive: true });
+    this.activeController = new AbortController();
+
+    const items: BatchItemResult[] = [];
+    let succeeded = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const filePath = files[i];
+      const filename = path.basename(filePath);
+
+      // Check cancellation
+      if (this.activeController.signal.aborted) {
+        items.push({ filename, status: 'skipped', reason: 'Cancelled' });
+        skipped++;
+        continue;
+      }
+
+      onBatchProgress?.(i + 1, files.length, filename, 0, 'Validating...');
+
+      // Validate input
+      const validation = await validateInput(filePath);
+      if (!validation.valid) {
+        items.push({ filename, status: 'skipped', reason: validation.reason });
+        skipped++;
+        continue;
+      }
+
+      // Build output path
+      const stem = path.basename(filePath, path.extname(filePath));
+      const ext = outputFormat === 'jpeg' ? '.jpg' : outputFormat === 'tiff' ? '.tif' : '.png';
+      const outputPath = path.join(outputDir, `${stem}_x${scale}${ext}`);
+
+      const spec: JobSpec = {
+        inputPath: filePath,
+        outputPath,
+        scale,
+        model,
+        tileSize,
+        outputFormat,
+      };
+
+      try {
+        this.tempFiles = [];
+        const result = await this.runSpec(spec, (e) => {
+          onBatchProgress?.(i + 1, files.length, filename, e.percent, e.message);
+        });
+
+        if (result.success) {
+          // For JPEG, apply quality setting
+          if (outputFormat === 'jpeg' && jpegQuality !== 95) {
+            const sharp = (await import('sharp')).default;
+            const tempJpeg = result.outputPath! + '.tmp';
+            await sharp(result.outputPath!).jpeg({ quality: jpegQuality }).toFile(tempJpeg);
+            fs.renameSync(tempJpeg, result.outputPath!);
+          }
+          items.push({ filename, status: 'succeeded', elapsedMs: result.elapsedMs });
+          succeeded++;
+        } else {
+          items.push({ filename, status: 'failed', reason: result.error });
+          failed++;
+        }
+      } catch (err) {
+        if (err instanceof EngineError && err.type === 'cancelled') {
+          items.push({ filename, status: 'skipped', reason: 'Cancelled' });
+          skipped++;
+        } else {
+          const msg = err instanceof Error ? (err as EngineError).userMessage || err.message : String(err);
+          items.push({ filename, status: 'failed', reason: msg });
+          failed++;
+        }
+      } finally {
+        this.cleanupTempFiles();
+      }
+    }
+
+    this.activeController = null;
+
+    return {
+      total: files.length,
+      succeeded,
+      failed,
+      skipped,
+      items,
+      totalElapsedMs: Date.now() - startTime,
+    };
+  }
+
+  /** Cancel the currently running job or batch. */
   cancel(): void {
     this.activeController?.abort();
+  }
+
+  /** Run a job spec (single or two-pass) without managing the controller. */
+  private async runSpec(spec: JobSpec, onProgress?: ProgressCallback): Promise<JobResult> {
+    if (spec.scale === 4) {
+      return this.singlePass(spec, onProgress);
+    } else {
+      return this.twoPass(spec, onProgress);
+    }
   }
 
   private async singlePass(spec: JobSpec, onProgress?: ProgressCallback): Promise<JobResult> {

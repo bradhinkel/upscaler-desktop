@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ComparisonSlider } from './components/ComparisonSlider';
-import type { AppSettings, UpscaleRequest } from '../shared/ipc';
+import type { AppSettings, UpscaleRequest, BatchSummary, BatchProgressEvent } from '../shared/ipc';
 import type { ScaleFactor, OutputFormat } from '../shared/types';
 
 type AppState = 'idle' | 'processing' | 'done' | 'error';
+type AppMode = 'single' | 'batch';
 
 export function App(): React.ReactElement {
   const [state, setState] = useState<AppState>('idle');
@@ -20,6 +21,11 @@ export function App(): React.ReactElement {
   const [referencePath, setReferencePath] = useState<string | null>(null);
   const [lpipsScore, setLpipsScore] = useState<number | null>(null);
   const [lpipsComputing, setLpipsComputing] = useState(false);
+  const [mode, setMode] = useState<AppMode>('single');
+  const [batchInputDir, setBatchInputDir] = useState<string | null>(null);
+  const [batchOutputDir, setBatchOutputDir] = useState<string | null>(null);
+  const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [batchProgress, setBatchProgress] = useState<BatchProgressEvent | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
   // Load settings on mount
@@ -27,13 +33,16 @@ export function App(): React.ReactElement {
     window.api.getSettings().then(setSettings);
   }, []);
 
-  // Subscribe to progress
+  // Subscribe to progress events
   useEffect(() => {
     const cleanup = window.api.onProgress((event) => {
       setProgress(event.percent);
       if (event.message) setProgressMsg(event.message);
     });
-    return cleanup;
+    const cleanupBatch = window.api.onBatchProgress((event) => {
+      setBatchProgress(event);
+    });
+    return () => { cleanup(); cleanupBatch(); };
   }, []);
 
   // Read image file via IPC (renderer can't access file:// directly)
@@ -131,6 +140,27 @@ export function App(): React.ReactElement {
     setState('idle');
   }, []);
 
+  const handleBatchUpscale = useCallback(async () => {
+    if (!batchInputDir || !batchOutputDir || !settings) return;
+    setState('processing');
+    setBatchSummary(null);
+    setBatchProgress(null);
+
+    const summary = await window.api.batchUpscale({
+      inputDir: batchInputDir,
+      outputDir: batchOutputDir,
+      scale: settings.scale,
+      model: settings.model,
+      tileSize: settings.tileSize,
+      outputFormat: settings.outputFormat,
+      jpegQuality: settings.jpegQuality,
+    });
+
+    setBatchSummary(summary);
+    setBatchProgress(null);
+    setState('done');
+  }, [batchInputDir, batchOutputDir, settings]);
+
   const handleLoadReference = useCallback(async () => {
     const filePath = await window.api.openFile();
     if (filePath) {
@@ -174,15 +204,56 @@ export function App(): React.ReactElement {
       <div style={styles.sidebar}>
         <h2 style={styles.title}>Upscaler Desktop</h2>
 
-        {/* File input */}
-        <div style={styles.section}>
-          <button onClick={handleOpenFile} style={styles.button}>
-            Open Image
+        {/* Mode toggle */}
+        <div style={{ ...styles.section, display: 'flex', gap: 2, backgroundColor: '#2a2a4a', borderRadius: 6, padding: 2 }}>
+          <button
+            onClick={() => setMode('single')}
+            style={{ ...styles.toggleButton, flex: 1, ...(mode === 'single' ? styles.toggleActive : {}) }}
+          >
+            Single
           </button>
-          {inputPath && (
-            <div style={styles.fileInfo}>{inputPath.split(/[\\/]/).pop()}</div>
-          )}
+          <button
+            onClick={() => setMode('batch')}
+            style={{ ...styles.toggleButton, flex: 1, ...(mode === 'batch' ? styles.toggleActive : {}) }}
+          >
+            Batch
+          </button>
         </div>
+
+        {/* File/folder input */}
+        {mode === 'single' ? (
+          <div style={styles.section}>
+            <button onClick={handleOpenFile} style={styles.button}>
+              Open Image
+            </button>
+            {inputPath && (
+              <div style={styles.fileInfo}>{inputPath.split(/[\\/]/).pop()}</div>
+            )}
+          </div>
+        ) : (
+          <div style={styles.section}>
+            <button
+              onClick={async () => {
+                const dir = await window.api.openFolder();
+                if (dir) setBatchInputDir(dir);
+              }}
+              style={styles.button}
+            >
+              Input Folder
+            </button>
+            {batchInputDir && <div style={styles.fileInfo}>{batchInputDir}</div>}
+            <button
+              onClick={async () => {
+                const dir = await window.api.openFolder();
+                if (dir) setBatchOutputDir(dir);
+              }}
+              style={{ ...styles.button, marginTop: 6 }}
+            >
+              Output Folder
+            </button>
+            {batchOutputDir && <div style={styles.fileInfo}>{batchOutputDir}</div>}
+          </div>
+        )}
 
         {/* Scale */}
         <div style={styles.section}>
@@ -256,38 +327,35 @@ export function App(): React.ReactElement {
           </div>
         )}
 
-        {/* Reference image for LPIPS scoring */}
-        <div style={styles.section}>
-          <label style={styles.label}>Reference (for LPIPS)</label>
-          <button onClick={handleLoadReference} style={{ ...styles.button, fontSize: 12 }}>
-            {referencePath ? 'Change Reference' : 'Load Reference'}
-          </button>
-          {referencePath && (
-            <div style={styles.fileInfo}>
-              {referencePath.split(/[\\/]/).pop()}
-              <span
-                onClick={() => {
-                  setReferencePath(null);
-                  setLpipsScore(null);
-                }}
-                style={{ marginLeft: 8, cursor: 'pointer', color: '#888' }}
-              >
-                x
-              </span>
-            </div>
-          )}
-          {lpipsComputing && (
-            <div style={{ ...styles.fileInfo, color: '#4a6cf7' }}>Computing LPIPS...</div>
-          )}
-          {lpipsScore !== null && (
-            <div style={{ marginTop: 4, padding: '4px 8px', background: '#2a2a4a', borderRadius: 4, fontSize: 13 }}>
-              <span style={{ color: '#4caf50', fontWeight: 600 }}>LPIPS: {lpipsScore.toFixed(4)}</span>
-              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
-                Lower = more similar to reference (0 = identical)
+        {/* Reference image for LPIPS scoring (single mode only) */}
+        {mode === 'single' && (
+          <div style={styles.section}>
+            <label style={styles.label}>Reference (for LPIPS)</label>
+            <button onClick={handleLoadReference} style={{ ...styles.button, fontSize: 12 }}>
+              {referencePath ? 'Change Reference' : 'Load Reference'}
+            </button>
+            {referencePath && (
+              <div style={styles.fileInfo}>
+                {referencePath.split(/[\\/]/).pop()}
+                <span
+                  onClick={() => { setReferencePath(null); setLpipsScore(null); }}
+                  style={{ marginLeft: 8, cursor: 'pointer', color: '#888' }}
+                >x</span>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+            {lpipsComputing && (
+              <div style={{ ...styles.fileInfo, color: '#4a6cf7' }}>Computing LPIPS...</div>
+            )}
+            {lpipsScore !== null && (
+              <div style={{ marginTop: 4, padding: '4px 8px', background: '#2a2a4a', borderRadius: 4, fontSize: 13 }}>
+                <span style={{ color: '#4caf50', fontWeight: 600 }}>LPIPS: {lpipsScore.toFixed(4)}</span>
+                <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
+                  Lower = more similar to reference (0 = identical)
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Action buttons */}
         <div style={{ ...styles.section, marginTop: 'auto' }}>
@@ -295,29 +363,33 @@ export function App(): React.ReactElement {
             <button onClick={handleCancel} style={{ ...styles.button, ...styles.cancelButton }}>
               Cancel
             </button>
-          ) : (
+          ) : mode === 'single' ? (
             <button
               onClick={handleUpscale}
               disabled={!inputPath}
-              style={{
-                ...styles.button,
-                ...styles.primaryButton,
-                opacity: inputPath ? 1 : 0.5,
-              }}
+              style={{ ...styles.button, ...styles.primaryButton, opacity: inputPath ? 1 : 0.5 }}
             >
               Upscale {settings.scale}x
             </button>
+          ) : (
+            <button
+              onClick={handleBatchUpscale}
+              disabled={!batchInputDir || !batchOutputDir}
+              style={{ ...styles.button, ...styles.primaryButton, opacity: batchInputDir && batchOutputDir ? 1 : 0.5 }}
+            >
+              Batch {settings.scale}x
+            </button>
           )}
 
-          {state === 'done' && (
+          {state === 'done' && mode === 'single' && (
             <button onClick={handleSave} style={{ ...styles.button, marginTop: 8 }}>
               Save As...
             </button>
           )}
         </div>
 
-        {/* Status */}
-        {state === 'processing' && (
+        {/* Status — single mode */}
+        {state === 'processing' && mode === 'single' && (
           <div style={styles.status}>
             <div style={styles.progressBar}>
               <div style={{ ...styles.progressFill, width: `${progress}%` }} />
@@ -328,7 +400,22 @@ export function App(): React.ReactElement {
           </div>
         )}
 
-        {state === 'done' && (
+        {/* Status — batch mode */}
+        {state === 'processing' && mode === 'batch' && batchProgress && (
+          <div style={styles.status}>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>
+              {batchProgress.current}/{batchProgress.total}: {batchProgress.currentFile}
+            </div>
+            <div style={styles.progressBar}>
+              <div style={{ ...styles.progressFill, width: `${(batchProgress.current / batchProgress.total) * 100}%` }} />
+            </div>
+            <div style={styles.progressText}>
+              {batchProgress.filePercent.toFixed(0)}% {batchProgress.message && `- ${batchProgress.message}`}
+            </div>
+          </div>
+        )}
+
+        {state === 'done' && mode === 'single' && (
           <div style={{ ...styles.status, color: '#4caf50' }}>
             Done in {(elapsedMs / 1000).toFixed(1)}s
           </div>
@@ -341,50 +428,90 @@ export function App(): React.ReactElement {
 
       {/* Main content area */}
       <div style={styles.content}>
-        {!inputPath && (
+        {mode === 'single' && (
+          <>
+            {!inputPath && (
+              <div style={styles.dropZone}>
+                <div style={styles.dropIcon}>+</div>
+                <div>Drop an image here or click Open Image</div>
+              </div>
+            )}
+
+            {inputPath && !outputDataUrl && inputDataUrl && (
+              <div style={styles.imageContainer}>
+                <img
+                  src={inputDataUrl}
+                  alt="Input"
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              </div>
+            )}
+
+            {inputDataUrl && outputDataUrl && (
+              <div style={styles.comparisonContainer}>
+                <div style={styles.viewToggle}>
+                  <button
+                    onClick={() => setFitMode('fit')}
+                    style={{ ...styles.toggleButton, ...(fitMode === 'fit' ? styles.toggleActive : {}) }}
+                  >Fit</button>
+                  <button
+                    onClick={() => setFitMode('1:1')}
+                    style={{ ...styles.toggleButton, ...(fitMode === '1:1' ? styles.toggleActive : {}) }}
+                  >1:1</button>
+                </div>
+                <ComparisonSlider beforeSrc={inputDataUrl} afterSrc={outputDataUrl} fitMode={fitMode} />
+              </div>
+            )}
+          </>
+        )}
+
+        {mode === 'batch' && !batchSummary && (
           <div style={styles.dropZone}>
-            <div style={styles.dropIcon}>+</div>
-            <div>Drop an image here or click Open Image</div>
+            <div style={styles.dropIcon}>&#x1F4C1;</div>
+            <div>Select input and output folders, then click Batch</div>
           </div>
         )}
 
-        {inputPath && !outputDataUrl && inputDataUrl && (
-          <div style={styles.imageContainer}>
-            <img
-              src={inputDataUrl}
-              alt="Input"
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        {inputDataUrl && outputDataUrl && (
-          <div style={styles.comparisonContainer}>
-            <div style={styles.viewToggle}>
-              <button
-                onClick={() => setFitMode('fit')}
-                style={{
-                  ...styles.toggleButton,
-                  ...(fitMode === 'fit' ? styles.toggleActive : {}),
-                }}
-              >
-                Fit
-              </button>
-              <button
-                onClick={() => setFitMode('1:1')}
-                style={{
-                  ...styles.toggleButton,
-                  ...(fitMode === '1:1' ? styles.toggleActive : {}),
-                }}
-              >
-                1:1
-              </button>
+        {mode === 'batch' && batchSummary && (
+          <div style={{ padding: 24, width: '100%', maxWidth: 600, margin: '0 auto', overflow: 'auto', maxHeight: '100%' }}>
+            <h3 style={{ color: '#fff', marginBottom: 12 }}>Batch Complete</h3>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+              <div style={{ padding: '8px 16px', background: '#1b5e20', borderRadius: 6, color: '#4caf50' }}>
+                {batchSummary.succeeded} succeeded
+              </div>
+              {batchSummary.failed > 0 && (
+                <div style={{ padding: '8px 16px', background: '#b71c1c', borderRadius: 6, color: '#f44336' }}>
+                  {batchSummary.failed} failed
+                </div>
+              )}
+              {batchSummary.skipped > 0 && (
+                <div style={{ padding: '8px 16px', background: '#4a4a00', borderRadius: 6, color: '#fdd835' }}>
+                  {batchSummary.skipped} skipped
+                </div>
+              )}
             </div>
-            <ComparisonSlider
-              beforeSrc={inputDataUrl}
-              afterSrc={outputDataUrl}
-              fitMode={fitMode}
-            />
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>
+              {batchSummary.total} images in {(batchSummary.totalElapsedMs / 1000).toFixed(1)}s
+            </div>
+            <div style={{ fontSize: 13 }}>
+              {batchSummary.items.map((item, i) => (
+                <div key={i} style={{
+                  padding: '4px 0',
+                  borderBottom: '1px solid #2a2a4a',
+                  color: item.status === 'succeeded' ? '#4caf50' : item.status === 'failed' ? '#f44336' : '#fdd835',
+                }}>
+                  <span>{item.filename}</span>
+                  {item.status !== 'succeeded' && item.reason && (
+                    <span style={{ color: '#888', marginLeft: 8, fontSize: 11 }}>— {item.reason}</span>
+                  )}
+                  {item.elapsedMs !== undefined && (
+                    <span style={{ color: '#666', marginLeft: 8, fontSize: 11 }}>
+                      ({(item.elapsedMs / 1000).toFixed(1)}s)
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

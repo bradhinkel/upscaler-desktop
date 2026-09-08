@@ -7,7 +7,7 @@ import { EngineManager } from './engine/engine-manager';
 import { JobOrchestrator } from './engine/job-orchestrator';
 import { MetricsService } from './metrics-service';
 import { IPC, DEFAULT_SETTINGS } from '../shared/ipc';
-import type { AppSettings, UpscaleRequest, SaveRequest, UpscaleResult } from '../shared/ipc';
+import type { AppSettings, UpscaleRequest, SaveRequest, UpscaleResult, BatchRequest, BatchSummary } from '../shared/ipc';
 
 let mainWindow: BrowserWindow | null = null;
 let orchestrator: JobOrchestrator;
@@ -129,6 +129,28 @@ function setupIPC(): void {
     }
   });
 
+  // Batch upscale
+  ipcMain.handle(IPC.BATCH_UPSCALE, async (_event, request: BatchRequest): Promise<BatchSummary> => {
+    return orchestrator.submitBatch(
+      request.inputDir,
+      request.outputDir,
+      request.scale,
+      request.model,
+      request.tileSize,
+      request.outputFormat,
+      request.jpegQuality,
+      (current, total, file, filePercent, message) => {
+        mainWindow?.webContents.send(IPC.BATCH_PROGRESS, {
+          current,
+          total,
+          currentFile: file,
+          filePercent,
+          message,
+        });
+      },
+    );
+  });
+
   // Cancel
   ipcMain.on(IPC.CANCEL, () => {
     orchestrator.cancel();
@@ -189,6 +211,15 @@ function setupIPC(): void {
       properties: ['openFile'],
     });
 
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  // Open folder
+  ipcMain.handle(IPC.OPEN_FOLDER, async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openDirectory'],
+    });
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
   });
