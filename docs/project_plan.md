@@ -108,17 +108,75 @@ Folder in → folder out, sequential queue, per-image + overall progress, end-of
 - [ ] Each pathological input above produces a clean, user-readable error.
 - [ ] Unit tests for queue behavior (ordering, failure isolation, cancellation mid-batch).
 
-## Phase 5 — Packaging, signing, distribution
+## Phase 5 — Packaging, signing, distribution (alpha release)
 
-electron-builder NSIS installer. Azure Artifact Signing wired into the GitHub Actions release workflow (Brad provisions the account and identity validation — see "What Brad owns"; credentials live in GitHub Actions secrets, never in the repo). GitHub Release v1.0.0. Landing page (GitHub Pages: download button, 2–3 before/after pairs, system requirements, link to case study).
+**Scope framing (2026-09-09).** The artifact this phase ships is an **alpha — `v0.1.0`, not `v1.0.0`.** The goal is deliberately narrow: *a signed installer, hosted on the web, that a stranger can download and run without a scary warning and without installing anything else.* Proving that distribution path end-to-end is the deliverable. Feature richness is explicitly **not** in scope here — see "After the alpha" below. The earlier "GitHub Release v1.0.0" wording is superseded.
+
+electron-builder NSIS installer. Azure Artifact Signing wired into the GitHub Actions release workflow (Brad provisions the account and identity validation — see "What Brad owns"; credentials live in GitHub Actions secrets, never in the repo). Landing page (GitHub Pages: download button, 2–3 before/after pairs, system requirements, link to case study).
+
+### Status as of 2026-09-09
+
+App code through Phase 5 is committed and pushed (`0f7c6df`); working tree clean.
+
+| Item | State |
+|---|---|
+| `npm run dist` produces installer | Done — `release/Upscaler Desktop Setup 0.1.0.exe` |
+| Installer ≤ 400 MB | Done — 227 MB |
+| Installer signed | **Blocked on Azure** — `Get-AuthenticodeSignature` reports `NotSigned` |
+| Clean Win11 VM test | Not run (Brad) |
+| Landing page live | Not started — repo `has_pages: false` |
+| README screenshots | Not done (system requirements / build-from-source / license are done) |
+
+No git tag and no GitHub Release exist yet. `release.yml` triggers on `v*` tags, so nothing has fired. `package.json` carries no signing block; the workflow has commented-out `CSC_LINK` / `CSC_KEY_PASSWORD` placeholders, which are the old PFX-file path and get replaced by the Azure config below.
+
+### Azure Artifact Signing — provisioning (Brad, in progress)
+
+1. Azure subscription → create a **Trusted Signing / Artifact Signing account** (Basic, ~$9.99/mo). Note the **region**: the signing endpoint is region-scoped, e.g. `https://eus.codesigning.azure.net`.
+2. **Identity validation** (individual, government-ID based). Long-pole step; start it first.
+3. Create a **Certificate Profile** (Public Trust) under the account. Its subject CN is the publisher name shown in the UAC prompt — this is where the product-name decision lands.
+4. Register an **Entra ID app** (service principal) + client secret; assign it the **Trusted Signing Certificate Profile Signer** role scoped to that certificate profile.
+5. GitHub repo → Settings → Secrets → Actions: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`.
+
+**Hand back to Claude Code** (non-secret, goes in `package.json`): account name, certificate profile name, endpoint region URI. Verified against the installed tree: electron-builder 25.1.8 supports this natively via `win.azureSignOptions`, authenticating through Entra `EnvironmentCredential` on the three `AZURE_*` variables.
+
+```json
+"win": {
+  "target": "nsis",
+  "azureSignOptions": {
+    "endpoint": "https://<region>.codesigning.azure.net",
+    "codeSigningAccountName": "<account>",
+    "certificateProfileName": "<profile>"
+  }
+}
+```
+
+**SmartScreen caveat — criterion revised.** Signing removes the "Unknown Publisher" block, but SmartScreen reputation is also download-volume-based, so a newly signed installer from a brand-new publisher identity can still show a milder interstitial at first. The criterion below is therefore written as *no Unknown-Publisher block + correct publisher name*; reputation is tracked separately rather than treated as a gate.
+
+### Landing page
+
+GitHub Pages, source = a folder on `main`. Note `docs/` already holds the PRD / plan / parity material, so the site needs its own directory (e.g. `site/`, with Pages pointed at it) or the planning docs move — decide before building. Content: download button, 2–3 before/after pairs, system requirements, plain "this is an alpha" labelling, link to the case-study repo.
+
+**Sequencing.** Signing gates the tagged release; the release URL gates both the landing page's download button and the clean-VM test. Work that can proceed while identity validation is pending: `azureSignOptions` + workflow env wiring, landing-page scaffold with a placeholder download link, README screenshots.
 
 **Acceptance criteria**
 - [ ] `npm run dist` produces a signed installer; `signtool verify /pa` passes.
-- [ ] **Clean Windows 11 VM test:** download installer from the release URL in a browser → install → first upscale. No SmartScreen interstitial, no missing-DLL errors. (Brad or a fresh VM Claude Code can't fake — never invent this result.)
+- [ ] **Clean Windows 11 VM test:** download installer from the release URL in a browser → install → first upscale. No Unknown-Publisher SmartScreen block, correct publisher name shown, no missing-DLL errors. (Brad or a fresh VM — Claude Code can't fake this; never invent the result.)
 - [ ] Installer ≤ 400 MB.
 - [ ] Install → first completed upscale timed at < 5 minutes on the clean VM.
-- [ ] Landing page live; download link resolves to the signed release asset.
-- [ ] README: screenshots, system requirements, build-from-source instructions, license.
+- [ ] `v0.1.0` tag pushed; GitHub Release published with the signed installer attached, **marked pre-release** and described as an alpha.
+- [ ] Landing page live; download link resolves to the signed release asset; the page states plainly that this is an alpha.
+- [ ] README: screenshots, system requirements, build-from-source instructions, license, alpha status.
+
+### After the alpha — what a richer v1.0 still needs
+
+**Not yet scoped. To be planned with Brad once the alpha is live.** Recorded here so the alpha's deliberate narrowness is on the record — this is a candidate list, not committed work.
+
+- **Distribution maturity:** auto-update (electron-updater — `latest.yml` is already emitted by the build but nothing consumes it), crash/error reporting, versioned release notes.
+- **Product polish:** app icon and installer branding, first-run onboarding, model selection UI beyond the default, presets for common print sizes.
+- **Platform reach:** macOS / Linux builds — PRD §3 lists these as fast-follow candidates and the engine binary is already cross-platform.
+- **Metrics depth:** DISTS alongside LPIPS (Phase 3 left it as future work).
+- **The strategic payload (PRD §1.3):** the diffusion-refinement engine, gated on Phase R's outcome and the 100K-image retrain go/no-go.
+- **Standing non-goals** unless Brad revisits them: video upscaling, face restoration, cloud/API anything, telemetry, 16-bit color (the Real-ESRGAN models are 8-bit-trained).
 
 ## Phase R — Diffusion-refinement experiment (Track B, research repo)
 
@@ -148,7 +206,7 @@ Runs under the existing repo's CLAUDE.md rules. Can start any time after Track A
 | 2 — Core UI | 9 |
 | 3 — LPIPS/ONNX | 4 (or 1 if deferred) |
 | 4 — Batch + robustness | 5 |
-| 5 — Packaging + signing + page | 6 |
+| 5 — Packaging + signing + page (alpha) | 6 |
 | **Track A total** | **~33** |
 | R — Refinement experiment | 8 (+ Brad's curation/judging time) |
 
@@ -158,7 +216,8 @@ The original 25 hr estimate assumed a Gradio wrapper. A signed Electron app with
 
 - **Phase 0:** license decision sign-off (MIT binary vs AGPL fork + open-sourcing).
 - **Phase 1:** review parity results at 100% zoom; judgment call if drift is visible.
-- **Phase 5:** Azure account + Artifact Signing identity validation (~$9.99/mo, US individual validation, GA since April 2026); clean-VM SmartScreen verification; optional custom domain; product name.
+- **Phase 5:** Azure account + Artifact Signing identity validation (~$9.99/mo, US individual validation, GA since April 2026) — *in progress as of 2026-09-09*; creating the Entra service principal and loading the three `AZURE_*` GitHub Actions secrets; handing back the account name / certificate-profile name / endpoint region URI; clean-VM SmartScreen verification; optional custom domain; product name (it becomes the certificate profile's subject CN).
+- **After Phase 5:** deciding what "richer than the alpha" means — scoping v1.0 from the candidate list at the end of Phase 5.
 - **Phase R:** wild-image curation (his photos / phone shots); perceptual judging; the gate decision; the 100K-retrain go/no-go.
 - **Every phase:** review and explicit approval before the next phase starts.
 

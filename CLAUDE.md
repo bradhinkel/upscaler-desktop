@@ -29,6 +29,7 @@ Key decisions (see `docs/decisions.md`):
 - Engine binary: original xinntao `realesrgan-ncnn-vulkan` (MIT license)
 - App license: MIT
 - Packaging: electron-builder, NSIS installer, Azure Artifact Signing (Phase 5)
+- First public build is an **alpha (v0.1.0)**: signed + downloadable is the goal; feature richness comes after
 - Node: 18.20.8 (Windows)
 
 ---
@@ -114,11 +115,15 @@ npm run dist             # electron-builder → installer
 - [ ] Pathological inputs produce clean errors.
 - [ ] Queue behavior unit tests.
 
-### Phase 5 — Packaging, signing, distribution
-- [ ] Signed installer; `signtool verify /pa` passes.
-- [ ] Clean Windows 11 VM test passes (no SmartScreen warning).
-- [ ] Installer ≤ 400 MB.
-- [ ] Landing page live.
+### Phase 5 — Packaging, signing, distribution (**alpha, v0.1.0**)
+
+The deliverable is a signed installer a stranger can download and run safely — not a feature-complete product. Richer scope is listed under "After the alpha" in `docs/project_plan.md`. See that Phase 5 section for the Azure provisioning steps and the current status table.
+
+- [ ] Signed installer; `signtool verify /pa` passes. (Signing config: `win.azureSignOptions` in `package.json` + `AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` in Actions secrets.)
+- [ ] Clean Windows 11 VM test passes: no Unknown-Publisher SmartScreen block, correct publisher name.
+- [ ] Installer ≤ 400 MB. (Current build: 227 MB.)
+- [ ] `v0.1.0` tag → GitHub Release, marked pre-release, signed installer attached.
+- [ ] Landing page live; download link resolves to the signed release asset; alpha status stated.
 
 ---
 
