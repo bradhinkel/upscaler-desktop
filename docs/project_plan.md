@@ -125,7 +125,7 @@ electron-builder NSIS installer. Azure Artifact Signing wired into the GitHub Ac
 | Signing **framework** wired | Done — `electron-builder.config.js` + `docs/signing.md` + release workflow |
 | Installer actually signed | **Blocked on Azure provisioning** (Brad, in progress) |
 | Landing page built | Done — `site/`, deployed by `.github/workflows/pages.yml` |
-| Landing page live | Pending first workflow run |
+| Landing page live | **Blocked on one click** — Settings → Pages → Source: GitHub Actions |
 | Clean Win11 VM test | Not run (Brad) |
 | README screenshots | Not done — needs app screenshots, distinct from the landing page's before/afters |
 
@@ -147,7 +147,9 @@ Verified against the installed tree: electron-builder 25.1.8 supports `azureSign
 
 ### Landing page
 
-**Built.** Lives in `site/` (a static `index.html` plus three before/after pairs in `site/img/`), deployed to GitHub Pages by `.github/workflows/pages.yml` on any push to `main` touching `site/`. The workflow uses `actions/configure-pages` with `enablement: true`, so the first run turns Pages on without a manual settings change; the site lands at `https://bradhinkel.github.io/upscaler-desktop/`.
+**Built.** Lives in `site/` (a static `index.html` plus three before/after pairs in `site/img/`), deployed to GitHub Pages by `.github/workflows/pages.yml` on any push to `main` touching `site/`. The site lands at `https://bradhinkel.github.io/upscaler-desktop/`.
+
+**One manual step remains (Brad):** repo → Settings → Pages → Build and deployment → Source: **GitHub Actions**, then re-run the "Deploy landing page" workflow from the Actions tab. The first attempt used `actions/configure-pages` with `enablement: true` to avoid this click; it 403s, because the workflow's `GITHUB_TOKEN` cannot enable Pages on a repository that has never had it turned on. The flag has been removed and the requirement documented in the workflow header.
 
 Deploying from an Actions workflow rather than a branch folder is what allowed `site/` as the source — branch-based Pages only offers `/` or `/docs`, and `docs/` already holds the PRD / plan / parity material.
 

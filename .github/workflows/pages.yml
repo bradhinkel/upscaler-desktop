@@ -1,12 +1,23 @@
 name: Deploy landing page
 
+# ONE-TIME SETUP (required before the first successful run):
+#   GitHub repo -> Settings -> Pages -> Build and deployment -> Source:
+#   "GitHub Actions".
+#
+# An earlier revision tried `enablement: true` on actions/configure-pages to do
+# this automatically. It fails with a 403 on this repo -- the workflow's
+# GITHUB_TOKEN cannot turn Pages on for a repository that has never had it
+# enabled. Flipping the source in Settings once is the fix; nothing here needs
+# to change afterwards.
+
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
-  # Allows a manual redeploy from the Actions tab without touching the site.
+  # Lets you redeploy from the Actions tab without touching the site -- use
+  # this to re-run after enabling Pages in Settings.
   workflow_dispatch:
 
 permissions:
@@ -28,11 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # enablement:true turns Pages on for the repo if it isn't already, so the
-      # first deploy needs no manual click in Settings.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
