@@ -202,7 +202,7 @@ export function App(): React.ReactElement {
     <div ref={dropRef} style={styles.container}>
       {/* Sidebar */}
       <div style={styles.sidebar}>
-        <h2 style={styles.title}>Upscaler Desktop</h2>
+        <h2 style={styles.title}>Enlarger</h2>
 
         {/* Mode toggle */}
         <div style={{ ...styles.section, display: 'flex', gap: 2, backgroundColor: '#2a2a4a', borderRadius: 6, padding: 2 }}>

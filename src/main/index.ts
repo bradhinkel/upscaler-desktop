@@ -59,7 +59,7 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    title: 'Upscaler Desktop',
+    title: 'Enlarger',
     backgroundColor: '#1a1a2e',
   });
 

@@ -1,4 +1,4 @@
-# CLAUDE.md — upscaler-desktop
+# CLAUDE.md — Enlarger (repo: `upscaler-desktop`)
 
 Operator manual for Claude Code on this project. Read in full before making changes.
 
@@ -23,7 +23,7 @@ Do not modify `docs/project_plan.md` or `docs/PRD.md` without being asked.
 
 ## Project overview
 
-A signed Windows desktop app that wraps `realesrgan-ncnn-vulkan` for GPU-accelerated image upscaling. Electron + TypeScript + React. Target: photographers making large-format prints.
+**Enlarger** — a signed Windows desktop app that wraps `realesrgan-ncnn-vulkan` for GPU-accelerated image upscaling. Electron + TypeScript + React. Target: photographers making large-format prints. The repository keeps its working name `upscaler-desktop`; the product is Enlarger (see `docs/decisions.md` D2).
 
 Key decisions (see `docs/decisions.md`):
 - Engine binary: original xinntao `realesrgan-ncnn-vulkan` (MIT license)
@@ -44,8 +44,11 @@ Key decisions (see `docs/decisions.md`):
 - `resources/bin/` — sidecar binary (gitignored, fetched at build time)
 - `resources/models/` — ncnn model files (gitignored, fetched at build time)
 - `scripts/` — build/CI helpers
-- `docs/` — PRD, project plan, engine contract, decisions
+- `docs/` — PRD, project plan, engine contract, decisions, signing
+- `site/` — GitHub Pages landing page (static; deployed by `.github/workflows/pages.yml`)
 - `tests/` — Vitest unit tests (must pass on CPU-only CI)
+
+Build configuration lives in `electron-builder.config.js`, **not** `package.json`. Code signing is env-gated there — see `docs/signing.md`.
 
 ---
 
@@ -145,7 +148,7 @@ Secrets in `.env` (never committed). Copy `.env.example` → `.env`.
 | Phase | Vars needed |
 |---|---|
 | 0–4 | None |
-| 5 | Azure signing credentials (in GitHub Actions secrets only) |
+| 5 | Azure signing credentials — GitHub Actions secrets/variables; see `docs/signing.md`. `.env.example` documents them for local hand-verification only. |
 
 ---
 

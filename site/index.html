@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enlarger — GPU image upscaling for photographers</title>
+    <meta
+      name="description"
+      content="Enlarger is a free Windows desktop app that upscales photographs 4x, 8x, or 16x on your own GPU. No cloud, no subscription, no Python."
+    />
+    <meta property="og:title" content="Enlarger — GPU image upscaling for photographers" />
+    <meta
+      property="og:description"
+      content="Free Windows desktop upscaler. 4x/8x/16x on your own GPU. No cloud, no subscription."
+    />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Cpath d='M9 20V9h4.2a3.4 3.4 0 0 1 0 6.8H12' stroke='%2360a5fa' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='19.5' cy='19.5' r='4.2' stroke='%2360a5fa' stroke-width='2.2' fill='none'/%3E%3Cpath d='M22.6 22.6 26 26' stroke='%2360a5fa' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        --bg: #0b0f17;
+        --bg-soft: #121826;
+        --line: #1f2937;
+        --text: #e7eaf0;
+        --muted: #97a3b6;
+        --accent: #60a5fa;
+        --accent-ink: #0b0f17;
+        --warn-bg: #2a2210;
+        --warn-line: #7a5c17;
+        --warn-text: #f0d894;
+        --radius: 12px;
+        --maxw: 1060px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+        margin: 0 0 12px;
+        letter-spacing: -0.02em;
+      }
+
+      /* ---------- header ---------- */
+      header {
+        border-bottom: 1px solid var(--line);
+        padding: 18px 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 650;
+        font-size: 17px;
+      }
+
+      .brand svg {
+        display: block;
+      }
+
+      .brand .tag {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--warn-text);
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-line);
+        border-radius: 999px;
+        padding: 2px 9px;
+      }
+
+      /* ---------- hero ---------- */
+      .hero {
+        padding: 72px 0 56px;
+        text-align: center;
+      }
+
+      .hero h1 {
+        font-size: clamp(34px, 6vw, 56px);
+      }
+
+      .hero .lede {
+        color: var(--muted);
+        font-size: clamp(17px, 2.3vw, 20px);
+        max-width: 640px;
+        margin: 0 auto 32px;
+      }
+
+      .cta {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn {
+        display: inline-block;
+        background: var(--accent);
+        color: var(--accent-ink);
+        font-weight: 650;
+        font-size: 17px;
+        text-decoration: none;
+        padding: 14px 30px;
+        border-radius: var(--radius);
+        transition:
+          transform 0.12s ease,
+          filter 0.12s ease;
+      }
+
+      .btn:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+      }
+
+      .btn[aria-disabled='true'] {
+        background: var(--bg-soft);
+        color: var(--muted);
+        border: 1px solid var(--line);
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      .cta small {
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+
+      /* ---------- alpha notice ---------- */
+      .notice {
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-line);
+        color: var(--warn-text);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin: 0 auto;
+        max-width: 720px;
+        font-size: 14.5px;
+        text-align: left;
+      }
+
+      .notice strong {
+        color: #ffe9ac;
+      }
+
+      /* ---------- sections ---------- */
+      section {
+        padding: 56px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      section > .wrap > h2 {
+        font-size: clamp(24px, 3.4vw, 32px);
+      }
+
+      .sub {
+        color: var(--muted);
+        margin: 0 0 28px;
+        max-width: 660px;
+      }
+
+      /* ---------- comparison ---------- */
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+
+      .tab {
+        background: var(--bg-soft);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        border-radius: 999px;
+        padding: 7px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .tab[aria-selected='true'] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+        font-weight: 620;
+      }
+
+      .compare {
+        position: relative;
+        width: 100%;
+        max-width: 700px;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--line);
+        user-select: none;
+        touch-action: none;
+        cursor: ew-resize;
+        background: var(--bg-soft);
+      }
+
+      .compare img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        pointer-events: none;
+      }
+
+      .compare .after-clip {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        will-change: clip-path;
+      }
+
+      .handle {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #fff;
+        pointer-events: none;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+
+      .handle::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 38px;
+        height: 38px;
+        margin: -19px 0 0 -19px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+      }
+
+      .lbl {
+        position: absolute;
+        bottom: 12px;
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(11, 15, 23, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        padding: 5px 11px;
+        border-radius: 999px;
+        pointer-events: none;
+      }
+
+      .lbl.l {
+        left: 12px;
+      }
+
+      .lbl.r {
+        right: 12px;
+        color: var(--accent);
+      }
+
+      .caption {
+        text-align: center;
+        color: var(--muted);
+        font-size: 13.5px;
+        margin-top: 14px;
+      }
+
+      /* ---------- feature grid ---------- */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--bg-soft);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 20px 22px;
+      }
+
+      .card h3 {
+        font-size: 16.5px;
+        margin-bottom: 6px;
+      }
+
+      .card p {
+        color: var(--muted);
+        font-size: 14.5px;
+        margin: 0;
+      }
+
+      /* ---------- specs table ---------- */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+
+      td {
+        padding: 11px 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      td:first-child {
+        color: var(--muted);
+        width: 150px;
+        padding-right: 20px;
+      }
+
+      /* ---------- footer ---------- */
+      footer {
+        border-top: 1px solid var(--line);
+        padding: 34px 0 60px;
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+
+      footer p {
+        margin: 0 0 8px;
+      }
+
+      @media (max-width: 620px) {
+        .hero {
+          padding: 48px 0 40px;
+        }
+        section {
+          padding: 42px 0;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="wrap brand">
+        <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="7" fill="#121826" />
+          <path
+            d="M9 20V9h4.2a3.4 3.4 0 0 1 0 6.8H12"
+            stroke="#60a5fa"
+            stroke-width="2.2"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <circle cx="19.5" cy="19.5" r="4.2" stroke="#60a5fa" stroke-width="2.2" fill="none" />
+          <path d="M22.6 22.6 26 26" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" />
+        </svg>
+        <span>Enlarger</span>
+        <span class="tag">Alpha</span>
+      </div>
+    </header>
+
+    <div class="hero">
+      <div class="wrap">
+        <h1>Print bigger than your file should allow.</h1>
+        <p class="lede">
+          Enlarger upscales photographs 4×, 8×, or 16× using your own GPU. No cloud upload, no
+          subscription, no Python to install — one Windows installer, and your images never leave
+          your machine.
+        </p>
+
+        <div class="cta">
+          <a class="btn" id="download" href="#" aria-disabled="true">Download for Windows</a>
+          <small id="download-note">Preparing the first signed build.</small>
+        </div>
+      </div>
+    </div>
+
+    <section style="border-top: none; padding-top: 0">
+      <div class="wrap">
+        <div class="notice">
+          <strong>This is an alpha.</strong> It does one thing well — Real-ESRGAN upscaling with a
+          side-by-side inspection view — and it is being published early so real photographers can
+          try it and push back. Expect rough edges in the interface, not in the output. Bug reports
+          and feature requests are genuinely wanted:
+          <a href="https://github.com/bradhinkel/upscaler-desktop/issues">open an issue</a>.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>See the difference</h2>
+        <p class="sub">
+          Drag the handle. Both sides start from the same 250×250 pixel source and are enlarged to
+          1000×1000 — the left is an ordinary bicubic resize, the right is Enlarger. Shown at 1:1
+          pixels, so what you see is what prints.
+        </p>
+
+        <div class="tabs" role="tablist" id="tabs">
+          <button class="tab" role="tab" data-slug="grey-heron" aria-selected="true">
+            Wildlife
+          </button>
+          <button class="tab" role="tab" data-slug="florence" aria-selected="false">
+            Architecture
+          </button>
+          <button class="tab" role="tab" data-slug="yosemite-valley" aria-selected="false">
+            Landscape
+          </button>
+        </div>
+
+        <div class="compare" id="compare">
+          <img id="img-before" src="img/grey-heron-before.jpg" alt="Bicubic resize, soft detail" />
+          <div class="after-clip" id="clip">
+            <img
+              id="img-after"
+              src="img/grey-heron-after.jpg"
+              alt="Enlarger output, recovered detail"
+            />
+          </div>
+          <div class="handle" id="handle"></div>
+          <span class="lbl l">Bicubic</span>
+          <span class="lbl r">Enlarger</span>
+        </div>
+
+        <p class="caption">
+          Test images from Pixabay. These are genuine outputs from the shipping engine, not
+          marketing renders.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>What it does</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>4× / 8× / 16×</h3>
+            <p>
+              8× and 16× run as sequential 4× passes, which the underlying study showed is visibly
+              better than a single-shot large-factor model.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Any GPU</h3>
+            <p>
+              Built on Vulkan, so NVIDIA, AMD, and Intel Arc all work. No CUDA install, no vendor
+              lock-in.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Inspect before you commit</h3>
+            <p>
+              Before/after slider with true 1:1 pixel zoom and synchronised pan — the loop that
+              actually matters when you are judging a print.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Batch a whole shoot</h3>
+            <p>
+              Point it at a folder. Per-image progress, failure isolation, and a summary at the end
+              rather than a crash on image 40.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Perceptual scoring</h3>
+            <p>
+              Optional LPIPS score against a reference image, so quality is a number and not just a
+              vibe. Runs on CPU, never blocks the upscale.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Nothing leaves your machine</h3>
+            <p>Entirely local. No account, no upload, no telemetry. PNG, JPEG, and TIFF out.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>System requirements</h2>
+        <table>
+          <tr>
+            <td>OS</td>
+            <td>Windows 10 or 11, 64-bit</td>
+          </tr>
+          <tr>
+            <td>GPU</td>
+            <td>Any Vulkan-capable GPU (NVIDIA, AMD, Intel Arc), 4 GB VRAM or more</td>
+          </tr>
+          <tr>
+            <td>RAM</td>
+            <td>8 GB minimum; 16 GB or more for 16× output</td>
+          </tr>
+          <tr>
+            <td>Disk</td>
+            <td>~300 MB installed</td>
+          </tr>
+          <tr>
+            <td>Price</td>
+            <td>Free. MIT licensed, source on GitHub.</td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Where this came from</h2>
+        <p class="sub">
+          Enlarger is the practical output of a 50-hour capability study that benchmarked
+          diffusion-based super-resolution (SUPIR, HYPIR, Stable Diffusion upscalers) against
+          GAN-based Real-ESRGAN across a frozen 60-image test set. The study's honest conclusion —
+          including a negative result on the LoRA it trained — is what decided which engine ships
+          here.
+        </p>
+        <p>
+          <a href="https://github.com/bradhinkel/SD_image_upscaler">Read the case study →</a><br />
+          <a href="https://github.com/bradhinkel/upscaler-desktop">Enlarger source on GitHub →</a>
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <p>Enlarger — MIT licensed. Built by Brad Hinkel.</p>
+        <p>
+          Upscaling by <a href="https://github.com/xinntao/Real-ESRGAN">Real-ESRGAN</a>
+          (BSD-3-Clause weights, MIT ncnn binary). Sample photographs from
+          <a href="https://pixabay.com/service/license-summary/">Pixabay</a>.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // ---------------------------------------------------------------------
+      // Download button. Flip RELEASE_PUBLISHED to true once the first signed
+      // release exists; the /releases/latest URL then resolves on its own and
+      // no further edit is needed for subsequent releases.
+      // ---------------------------------------------------------------------
+      const RELEASE_PUBLISHED = false;
+      const REPO = 'https://github.com/bradhinkel/upscaler-desktop';
+
+      const dl = document.getElementById('download');
+      const note = document.getElementById('download-note');
+
+      if (RELEASE_PUBLISHED) {
+        dl.href = REPO + '/releases/latest';
+        dl.removeAttribute('aria-disabled');
+        note.textContent = 'Signed installer · Windows 10/11 64-bit · free';
+      } else {
+        note.innerHTML =
+          'The first signed build is not published yet. ' +
+          '<a href="' +
+          REPO +
+          '">Watch the repo</a> to hear when it lands.';
+      }
+
+      // ---------------------------------------------------------------------
+      // Before/after slider
+      // ---------------------------------------------------------------------
+      const compare = document.getElementById('compare');
+      const clip = document.getElementById('clip');
+      const handle = document.getElementById('handle');
+      const before = document.getElementById('img-before');
+      const after = document.getElementById('img-after');
+
+      let pct = 50;
+
+      function render() {
+        clip.style.clipPath = 'inset(0 0 0 ' + pct + '%)';
+        handle.style.left = pct + '%';
+      }
+
+      function setFromEvent(e) {
+        const rect = compare.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+        render();
+      }
+
+      let dragging = false;
+      compare.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        compare.setPointerCapture(e.pointerId);
+        setFromEvent(e);
+      });
+      compare.addEventListener('pointermove', (e) => dragging && setFromEvent(e));
+      compare.addEventListener('pointerup', () => (dragging = false));
+      compare.addEventListener('pointercancel', () => (dragging = false));
+
+      render();
+
+      // ---------------------------------------------------------------------
+      // Sample tabs
+      // ---------------------------------------------------------------------
+      document.getElementById('tabs').addEventListener('click', (e) => {
+        const tab = e.target.closest('.tab');
+        if (!tab) return;
+        for (const t of document.querySelectorAll('.tab')) {
+          t.setAttribute('aria-selected', String(t === tab));
+        }
+        const slug = tab.dataset.slug;
+        before.src = 'img/' + slug + '-before.jpg';
+        after.src = 'img/' + slug + '-after.jpg';
+        pct = 50;
+        render();
+      });
+    </script>
+  </body>
+</html>

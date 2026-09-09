@@ -1,6 +1,6 @@
 # PRD — Desktop AI Upscaler (Tier 1)
 
-Working name: `upscaler-desktop`. Final product name TBD by Brad.
+Repository name: `upscaler-desktop` (working name, retained to avoid breaking URLs). **Product name: Enlarger** — decided 2026-09-09; see `decisions.md` D2.
 
 **Status:** Approved direction (June 2026). Decisions locked: ncnn-vulkan sidecar engine with engine abstraction, Electron shell, Windows-only v1, Azure Artifact Signing, diffusion-refinement gate = metrics + Brad's perceptual judgment.
 

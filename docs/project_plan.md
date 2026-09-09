@@ -114,20 +114,22 @@ Folder in → folder out, sequential queue, per-image + overall progress, end-of
 
 electron-builder NSIS installer. Azure Artifact Signing wired into the GitHub Actions release workflow (Brad provisions the account and identity validation — see "What Brad owns"; credentials live in GitHub Actions secrets, never in the repo). Landing page (GitHub Pages: download button, 2–3 before/after pairs, system requirements, link to case study).
 
-### Status as of 2026-09-09
+**Product name decided 2026-09-09: Enlarger.** Repository stays `upscaler-desktop`; see `decisions.md` D2.
 
-App code through Phase 5 is committed and pushed (`0f7c6df`); working tree clean.
+### Status as of 2026-09-09
 
 | Item | State |
 |---|---|
-| `npm run dist` produces installer | Done — `release/Upscaler Desktop Setup 0.1.0.exe` |
-| Installer ≤ 400 MB | Done — 227 MB |
-| Installer signed | **Blocked on Azure** — `Get-AuthenticodeSignature` reports `NotSigned` |
+| Product renamed to Enlarger | Done — config, titles, README, PRD, landing page |
+| `npm run dist` produces installer | Done — 227 MB, under the 400 MB budget |
+| Signing **framework** wired | Done — `electron-builder.config.js` + `docs/signing.md` + release workflow |
+| Installer actually signed | **Blocked on Azure provisioning** (Brad, in progress) |
+| Landing page built | Done — `site/`, deployed by `.github/workflows/pages.yml` |
+| Landing page live | Pending first workflow run |
 | Clean Win11 VM test | Not run (Brad) |
-| Landing page live | Not started — repo `has_pages: false` |
-| README screenshots | Not done (system requirements / build-from-source / license are done) |
+| README screenshots | Not done — needs app screenshots, distinct from the landing page's before/afters |
 
-No git tag and no GitHub Release exist yet. `release.yml` triggers on `v*` tags, so nothing has fired. `package.json` carries no signing block; the workflow has commented-out `CSC_LINK` / `CSC_KEY_PASSWORD` placeholders, which are the old PFX-file path and get replaced by the Azure config below.
+No git tag and no GitHub Release exist yet; `release.yml` triggers on `v*` tags, so nothing has fired. The old `CSC_LINK` / `CSC_KEY_PASSWORD` PFX placeholders are gone, replaced by the Azure wiring below.
 
 ### Azure Artifact Signing — provisioning (Brad, in progress)
 
@@ -137,24 +139,21 @@ No git tag and no GitHub Release exist yet. `release.yml` triggers on `v*` tags,
 4. Register an **Entra ID app** (service principal) + client secret; assign it the **Trusted Signing Certificate Profile Signer** role scoped to that certificate profile.
 5. GitHub repo → Settings → Secrets → Actions: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`.
 
-**Hand back to Claude Code** (non-secret, goes in `package.json`): account name, certificate profile name, endpoint region URI. Verified against the installed tree: electron-builder 25.1.8 supports this natively via `win.azureSignOptions`, authenticating through Entra `EnvironmentCredential` on the three `AZURE_*` variables.
+**Nothing to hand back as code.** The framework is already wired — `docs/signing.md` is the operator doc. Brad pastes six values into GitHub (three non-secret identifiers as Actions *variables*, three Entra credentials as *secrets*) and signing switches itself on. `electron-builder.config.js` enables `win.azureSignOptions` only when all six are present, so `npm run dist` keeps working unsigned on a dev box; `ENLARGER_REQUIRE_SIGNING` makes a misconfigured release build fail loudly instead of silently shipping unsigned.
 
-```json
-"win": {
-  "target": "nsis",
-  "azureSignOptions": {
-    "endpoint": "https://<region>.codesigning.azure.net",
-    "codeSigningAccountName": "<account>",
-    "certificateProfileName": "<profile>"
-  }
-}
-```
+Verified against the installed tree: electron-builder 25.1.8 supports `azureSignOptions` natively and authenticates through Entra `EnvironmentCredential`. A `--dir` build confirmed the config loads, the enable/disable branch reports correctly, and the require-signing guard aborts the build as intended.
 
 **SmartScreen caveat — criterion revised.** Signing removes the "Unknown Publisher" block, but SmartScreen reputation is also download-volume-based, so a newly signed installer from a brand-new publisher identity can still show a milder interstitial at first. The criterion below is therefore written as *no Unknown-Publisher block + correct publisher name*; reputation is tracked separately rather than treated as a gate.
 
 ### Landing page
 
-GitHub Pages, source = a folder on `main`. Note `docs/` already holds the PRD / plan / parity material, so the site needs its own directory (e.g. `site/`, with Pages pointed at it) or the planning docs move — decide before building. Content: download button, 2–3 before/after pairs, system requirements, plain "this is an alpha" labelling, link to the case-study repo.
+**Built.** Lives in `site/` (a static `index.html` plus three before/after pairs in `site/img/`), deployed to GitHub Pages by `.github/workflows/pages.yml` on any push to `main` touching `site/`. The workflow uses `actions/configure-pages` with `enablement: true`, so the first run turns Pages on without a manual settings change; the site lands at `https://bradhinkel.github.io/upscaler-desktop/`.
+
+Deploying from an Actions workflow rather than a branch folder is what allowed `site/` as the source — branch-based Pages only offers `/` or `/docs`, and `docs/` already holds the PRD / plan / parity material.
+
+The comparison images are genuine engine output, not mock-ups: `{stem}_250.jpg` from the frozen test set run through the shipping `realesrgan-ncnn-vulkan` binary at 4×, center-cropped to 700² at 1:1, against a bicubic resize of the same source. Sources are Pixabay, attributed in the footer.
+
+The download button is driven by a `RELEASE_PUBLISHED` constant at the top of the page script. It currently renders disabled with an honest "not published yet" note; flipping it to `true` points at `/releases/latest`, which then resolves for every subsequent release with no further edit.
 
 **Sequencing.** Signing gates the tagged release; the release URL gates both the landing page's download button and the clean-VM test. Work that can proceed while identity validation is pending: `azureSignOptions` + workflow env wiring, landing-page scaffold with a placeholder download link, README screenshots.
 

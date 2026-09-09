@@ -1,8 +1,12 @@
-# Upscaler Desktop
+# Enlarger
 
-A desktop image upscaler for photographers, built with Electron and [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN). Produces high-quality 4x/8x/16x upscales on any Vulkan-capable GPU (NVIDIA, AMD, Intel Arc).
+**Alpha.** A desktop image upscaler for photographers, built with Electron and [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN). Produces high-quality 4x/8x/16x upscales on any Vulkan-capable GPU (NVIDIA, AMD, Intel Arc). Entirely local — no account, no upload, no telemetry.
 
 Built as a follow-on to a [50-hour capability study](https://github.com/bradhinkel/SD_image_upscaler) comparing diffusion-based and GAN-based super-resolution methods.
+
+> **Alpha status.** Enlarger does one thing well — Real-ESRGAN upscaling with a side-by-side inspection view — and is published early to get it in front of real photographers. Expect rough edges in the interface, not in the output. [Issues](https://github.com/bradhinkel/upscaler-desktop/issues) welcome.
+>
+> The repository is still named `upscaler-desktop` (its working name); the product is Enlarger.
 
 ## Features
 
@@ -24,7 +28,11 @@ Built as a follow-on to a [50-hour capability study](https://github.com/bradhink
 
 ## Download
 
-Download the latest installer from [GitHub Releases](https://github.com/bradhinkel/upscaler-desktop/releases).
+**The first signed build is not published yet.** Once it is, it will be on the
+[landing page](https://bradhinkel.github.io/upscaler-desktop/) and under
+[GitHub Releases](https://github.com/bradhinkel/upscaler-desktop/releases).
+
+Releases are signed with Azure Artifact Signing so Windows shows a real publisher name rather than an "Unknown publisher" SmartScreen block. See [docs/signing.md](docs/signing.md).
 
 ## Build from Source
 
@@ -63,7 +71,7 @@ npx playwright test      # E2E integration tests (requires GPU)
 npm run dist             # builds electron-vite + NSIS installer
 ```
 
-The installer is written to `release/`.
+The installer is written to `release/`. It is unsigned unless Azure signing credentials are present in the environment — see [docs/signing.md](docs/signing.md). Build configuration lives in [`electron-builder.config.js`](electron-builder.config.js).
 
 ## Architecture
 
@@ -81,6 +89,11 @@ Electron main process (TypeScript)
 ```
 
 The engine abstraction (`src/shared/types.ts`) is designed so a future diffusion-refinement engine can be added without touching the UI or orchestrator. See `docs/engine-contract.md`.
+
+## Landing page
+
+The public page lives in [`site/`](site/) and is deployed to GitHub Pages by
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on any push to `main` that touches it.
 
 ## License
 

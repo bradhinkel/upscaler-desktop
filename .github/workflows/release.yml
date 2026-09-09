@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: write
+  # Required for the OIDC token if signing is later switched from a client
+  # secret to federated credentials. Harmless while unused.
+  id-token: write
 
 jobs:
   build:
@@ -30,13 +33,51 @@ jobs:
           npm run lint
           npm test
 
+      # Signing turns on only when all six values below are present. See
+      # docs/signing.md. Until Azure provisioning completes, the repo has no
+      # AZURE_* secrets and this job produces an UNSIGNED installer -- which is
+      # why ENLARGER_REQUIRE_SIGNING is gated on the secret being present rather
+      # than hardcoded to true.
       - name: Build installer
         run: npm run dist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Azure Artifact Signing (Brad provisions these):
-          # CSC_LINK: ${{ secrets.CSC_LINK }}
-          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Non-secret identifiers. Set as repo *variables* (Settings ->
+          # Secrets and variables -> Actions -> Variables), not secrets.
+          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CERTIFICATE_PROFILE: ${{ vars.AZURE_CERTIFICATE_PROFILE }}
+          # Entra ID service principal. Repo *secrets*.
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # Fail the build rather than silently shipping unsigned, but only
+          # once signing has actually been configured.
+          ENLARGER_REQUIRE_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' }}
+
+      - name: Verify signature
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem release/*.exe | Select-Object -First 1
+          Write-Host "Installer: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
+
+          if ($exe.Length -gt 400MB) {
+            Write-Error "Installer exceeds the 400 MB budget."
+            exit 1
+          }
+
+          $sig = Get-AuthenticodeSignature $exe.FullName
+          Write-Host "Signature status: $($sig.Status)"
+          if ($sig.SignerCertificate) {
+            Write-Host "Publisher: $($sig.SignerCertificate.Subject)"
+          }
+
+          if ('${{ secrets.AZURE_CLIENT_ID }}' -eq '') {
+            Write-Warning "No signing credentials configured - installer is UNSIGNED (pre-provisioning build)."
+          } elseif ($sig.Status -ne 'Valid') {
+            Write-Error "Signing was configured but the signature is not Valid: $($sig.StatusMessage)"
+            exit 1
+          }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
@@ -50,7 +91,10 @@ jobs:
           files: |
             release/*.exe
             release/*.exe.blockmap
+            release/latest.yml
           draft: false
+          # v0.x tags are alphas. Flip this when v1.0.0 ships.
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

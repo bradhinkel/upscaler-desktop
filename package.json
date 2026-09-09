@@ -1,7 +1,7 @@
 {
   "name": "upscaler-desktop",
   "version": "0.1.0",
-  "description": "Real-ESRGAN desktop image upscaler for photographers",
+  "description": "Enlarger - Real-ESRGAN desktop image upscaler for photographers",
   "main": "./out/main/index.js",
   "author": "Brad Hinkel",
   "license": "MIT",
@@ -18,7 +18,7 @@
     "fetch-binaries": "tsx scripts/fetch-binaries.ts",
     "upscale": "tsx scripts/upscale.ts",
     "predist": "electron-vite build",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win --config electron-builder.config.js"
   },
   "dependencies": {
     "onnxruntime-node": "^1.29.0",
@@ -45,42 +45,5 @@
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"
-  },
-  "build": {
-    "appId": "com.bradhinkel.upscaler-desktop",
-    "productName": "Upscaler Desktop",
-    "directories": {
-      "buildResources": "build",
-      "output": "release"
-    },
-    "files": [
-      "out/**/*"
-    ],
-    "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "extraResources": [
-      {
-        "from": "resources/bin",
-        "to": "bin"
-      },
-      {
-        "from": "resources/models",
-        "to": "models"
-      },
-      {
-        "from": "resources/lpips.onnx",
-        "to": "lpips.onnx"
-      },
-      {
-        "from": "resources/lpips.onnx.data",
-        "to": "lpips.onnx.data"
-      }
-    ]
   }
 }
