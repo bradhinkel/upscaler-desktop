@@ -17,18 +17,23 @@
  */
 
 // ---------------------------------------------------------------------------
-// PASTE ZONE -- fill these in from the Azure portal once the account exists.
-// These three are NOT secrets; committing them is fine and intended.
+// Azure Artifact Signing identifiers. NOT secrets -- committing them is fine
+// and intended. They identify the account; they grant no access to it.
+//
+// Each can be overridden by the matching environment variable, which is how a
+// second signing account (a test profile, say) can be used without editing
+// this file.
 // ---------------------------------------------------------------------------
 
-/** Region-scoped signing endpoint, e.g. 'https://eus.codesigning.azure.net' */
-const AZURE_SIGNING_ENDPOINT = process.env.AZURE_SIGNING_ENDPOINT || null;
+/** Region-scoped signing endpoint. West US per the account's region. */
+const AZURE_SIGNING_ENDPOINT =
+  process.env.AZURE_SIGNING_ENDPOINT || 'https://wus.codesigning.azure.net';
 
-/** Trusted Signing account name, e.g. 'enlarger-signing' */
-const AZURE_CODE_SIGNING_ACCOUNT = process.env.AZURE_CODE_SIGNING_ACCOUNT || null;
+/** Artifact Signing account resource name. */
+const AZURE_CODE_SIGNING_ACCOUNT = process.env.AZURE_CODE_SIGNING_ACCOUNT || 'upscaler-desktop';
 
 /** Certificate profile name; its subject CN is the publisher users see. */
-const AZURE_CERTIFICATE_PROFILE = process.env.AZURE_CERTIFICATE_PROFILE || null;
+const AZURE_CERTIFICATE_PROFILE = process.env.AZURE_CERTIFICATE_PROFILE || 'upscaler-desktop';
 
 // ---------------------------------------------------------------------------
 

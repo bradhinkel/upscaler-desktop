@@ -2,8 +2,10 @@
 
 How Enlarger's Windows installer gets signed, and exactly what to paste where.
 
-**Status:** framework wired, credentials not yet provisioned. Builds today are
-unsigned by design; nothing breaks, and the release workflow says so out loud.
+**Status (2026-09-13):** identifiers committed, credentials loaded into GitHub
+repository secrets. Not yet exercised — run the **Signing dry run** workflow to
+confirm end to end before tagging. Local builds without credentials remain
+unsigned by design; nothing breaks.
 
 ---
 
@@ -60,7 +62,22 @@ certificates it issues chain to a Microsoft root.
 
 GitHub repo → **Settings → Secrets and variables → Actions**.
 
-### Tab: Variables (these are not secrets — they are also fine to commit)
+### Already done: the three identifiers are committed
+
+As of 2026-09-13 the three non-secret identifiers are hardcoded in
+`electron-builder.config.js`:
+
+| Field | Value |
+|---|---|
+| Endpoint | `https://wus.codesigning.azure.net` (West US) |
+| Account name | `upscaler-desktop` |
+| Certificate profile name | `upscaler-desktop` |
+
+So **only the three credentials need to be in GitHub**, and they are, as
+repository secrets. The Actions *variables* below are optional overrides. Set
+one only to point a build at a different signing account without editing code.
+
+### Tab: Variables (optional overrides; not secrets)
 
 | Name | Value | Exact portal location |
 |---|---|---|
@@ -121,16 +138,16 @@ auth if passed as `AZURE_CLIENT_SECRET`.
 The tenant ID is also at Entra ID -> **Overview** -> Tenant ID; it is the same
 for every app in the directory.
 
-That is the whole handoff. No code change is required — `electron-builder.config.js`
-reads all six from the environment.
+That is the whole handoff, and it is done. `electron-builder.config.js` reads
+the credentials from the environment and carries the identifiers itself.
 
-### Optional: hardcode the three identifiers
+### Why the identifiers live in code, not in Actions variables
 
-If you would rather not keep the non-secret values in Actions variables, paste
-them directly into the marked **PASTE ZONE** at the top of
-`electron-builder.config.js` and drop the three `vars.*` lines from
-`.github/workflows/release.yml`. Committing them is safe — they identify the
-account, they do not grant access to it.
+They identify the account; they grant no access to it. Keeping them in the repo
+means a clone can produce a signed build with only the three credentials
+supplied, and it removes a silent failure mode: a forgotten Variables entry
+that turns signing off without anyone noticing. The env vars still take
+priority when set, so overriding remains possible.
 
 ---
 
@@ -215,6 +232,18 @@ between them.
 - [ ] Account name matches exactly, case included.
 - [ ] Certificate profile name matches exactly.
 - [ ] Endpoint region matches where the account was created.
+
+## Dry run before tagging
+
+`.github/workflows/sign-check.yml` ("Signing dry run") builds and signs a real
+installer, verifies it with both `Get-AuthenticodeSignature` and `signtool
+verify /pa`, prints the publisher and issuer, and uploads the installer as a
+7-day artifact. It publishes nothing and consumes no version number.
+
+Run it from the Actions tab. A 403 or a misnamed profile fails here, where the
+only cost is a red run, rather than on a tag that then has to be deleted and
+re-pushed. It is also the fastest way to see the actual publisher string that
+will appear in the UAC prompt.
 
 ## Cutting a release
 

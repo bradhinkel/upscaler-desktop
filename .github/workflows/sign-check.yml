@@ -1,0 +1,96 @@
+name: Signing dry run
+
+# Builds a real installer and signs it, then verifies the signature -- but
+# publishes nothing and consumes no version number. Run this before tagging a
+# release so a misconfigured Azure setup fails here instead of on a tag you then
+# have to delete.
+#
+# Manual only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  sign-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Fetch binaries
+        run: npx tsx scripts/fetch-binaries.ts
+
+      # Fail early and legibly if the credentials aren't in place, rather than
+      # 12 minutes into a build.
+      - name: Check credentials are present
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          $missing = @()
+          foreach ($n in 'AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET') {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($n))) {
+              $missing += $n
+            }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "Missing repository secrets: $($missing -join ', ')"
+            exit 1
+          }
+          Write-Host "All three credentials are present."
+
+      - name: Build and sign installer
+        run: npm run dist
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ENLARGER_REQUIRE_SIGNING: 'true'
+
+      - name: Verify signature
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem release/*.exe | Select-Object -First 1
+          Write-Host "Installer: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
+
+          $sig = Get-AuthenticodeSignature $exe.FullName
+          Write-Host "Status:    $($sig.Status)"
+          Write-Host "Publisher: $($sig.SignerCertificate.Subject)"
+          Write-Host "Issuer:    $($sig.SignerCertificate.Issuer)"
+          Write-Host "Valid:     $($sig.SignerCertificate.NotBefore) -> $($sig.SignerCertificate.NotAfter)"
+
+          if ($sig.Status -ne 'Valid') {
+            Write-Error "Signature is not Valid: $($sig.StatusMessage)"
+            exit 1
+          }
+
+          # /pa uses the Authenticode policy, i.e. the chain a real user's
+          # machine evaluates.
+          & signtool verify /pa /v $exe.FullName
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "signtool verify /pa failed."
+            exit 1
+          }
+
+          Write-Host "Signing verified. Safe to tag a release."
+
+      # Kept for 7 days so the installer can be pulled down and smoke-tested on
+      # a clean VM before a version number is committed to.
+      - name: Upload signed installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-installer-dry-run
+          path: release/*.exe
+          retention-days: 7

@@ -123,7 +123,7 @@ electron-builder NSIS installer. Azure Artifact Signing wired into the GitHub Ac
 | Product renamed to Enlarger | Done — config, titles, README, PRD, landing page |
 | `npm run dist` produces installer | Done — 227 MB, under the 400 MB budget |
 | Signing **framework** wired | Done — `electron-builder.config.js` + `docs/signing.md` + release workflow |
-| Installer actually signed | **Blocked on Azure provisioning** (Brad, in progress) |
+| Installer actually signed | Identifiers + credentials in place; **unverified** until the Signing dry run workflow is run |
 | Landing page built | Done — `site/`, deployed by `.github/workflows/pages.yml` |
 | Landing page live | **Blocked on one click** — Settings → Pages → Source: GitHub Actions |
 | Clean Win11 VM test | Not run (Brad) |
