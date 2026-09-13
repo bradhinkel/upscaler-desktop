@@ -62,11 +62,48 @@ GitHub repo → **Settings → Secrets and variables → Actions**.
 
 ### Tab: Variables (these are not secrets — they are also fine to commit)
 
-| Name | Value | Where it comes from |
+| Name | Value | Exact portal location |
 |---|---|---|
-| `AZURE_SIGNING_ENDPOINT` | `https://<region>.codesigning.azure.net` | Region of the signing account, e.g. `eus`, `wus2`, `neu` |
-| `AZURE_CODE_SIGNING_ACCOUNT` | account name | Step 1 |
-| `AZURE_CERTIFICATE_PROFILE` | profile name | Step 3 |
+| `AZURE_SIGNING_ENDPOINT` | `https://<code>.codesigning.azure.net` | Account **Overview** -> **Account URI**; or map the account's Region via the table below |
+| `AZURE_CODE_SIGNING_ACCOUNT` | the signing account's resource name | Portal search **Artifact Signing Accounts** -> the **Name** column |
+| `AZURE_CERTIFICATE_PROFILE` | the certificate profile's resource name | That account -> **Objects** -> **Certificate profiles** -> the **Name** column |
+
+**The certificate profile name is not a User Principal Name.** A UPN
+(`someone@tenant.onmicrosoft.com`) is an Entra ID *user* identity and has
+nothing to do with this field. Azure's own naming rules rule it out: a
+certificate profile name must be 5-100 **alphanumeric** characters beginning
+with a letter, so it cannot contain `@` or `.`. It is the name you typed in the
+**Certificate Profile Name** box when you created the profile.
+
+Likewise the account name is the resource name (3-24 alphanumeric characters,
+globally unique, begins with a letter) -- not the subscription name, not the
+resource group name, and not the publisher CN on the certificate.
+
+### Region -> endpoint URI
+
+Read **Account URI** straight off the account Overview pane if it is shown.
+Otherwise map the account's Region:
+
+| Region | Endpoint URI |
+|---|---|
+| Brazil South | `https://brs.codesigning.azure.net` |
+| Central US | `https://cus.codesigning.azure.net` |
+| East US | `https://eus.codesigning.azure.net` |
+| Japan East | `https://jpe.codesigning.azure.net` |
+| Korea Central | `https://krc.codesigning.azure.net` |
+| North Central US | `https://ncus.codesigning.azure.net` |
+| North Europe | `https://neu.codesigning.azure.net` |
+| Poland Central | `https://plc.codesigning.azure.net` |
+| South Central US | `https://scus.codesigning.azure.net` |
+| Switzerland North | `https://swn.codesigning.azure.net` |
+| West Central US | `https://wcus.codesigning.azure.net` |
+| West Europe | `https://weu.codesigning.azure.net` |
+| West US | `https://wus.codesigning.azure.net` |
+| West US 2 | `https://wus2.codesigning.azure.net` |
+| West US 3 | `https://wus3.codesigning.azure.net` |
+
+The code is not always the obvious abbreviation -- North Central US is `ncus`,
+not `nus`. Take it from the table.
 
 ### Tab: Secrets
 
@@ -147,6 +184,24 @@ pass condition.
 GitHub Actions secrets, and in a terminal session only when hand-verifying.
 
 ---
+
+## Confirming the three identifiers from the CLI
+
+Faster and less error-prone than reading them off blades, if you have the Azure
+CLI handy:
+
+```bash
+az login
+az extension add --name artifact-signing
+
+# Account name + region, for every signing account in the subscription
+az resource list --resource-type Microsoft.CodeSigning/codeSigningAccounts   --query "[].{account:name, region:location, rg:resourceGroup}" -o table
+
+# Certificate profile names under that account
+az artifact-signing certificate-profile list   -g <resource-group> --account-name <account> --query "[].name" -o table
+```
+
+Map the `region` column through the table above to get the endpoint URI.
 
 ## Pre-flight checklist
 
