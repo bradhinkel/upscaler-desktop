@@ -36,10 +36,23 @@ certificates it issues chain to a Microsoft root.
 4. **Service principal.** Microsoft Entra ID → App registrations → new
    registration → Certificates & secrets → new client secret. Copy the secret
    value immediately; it is shown once.
-5. **Role assignment.** On the *certificate profile* resource, assign the
-   service principal the **Trusted Signing Certificate Profile Signer** role.
-   Assigning at the account level instead is a common cause of 403s at sign
-   time.
+5. **Role assignment.** Go to the **signing account** resource (not the
+   certificate profile) -> **Access control (IAM)** -> **Add** -> **Add role
+   assignment**. On the *Role* tab search for `Signer` and pick **Artifact
+   Signing Certificate Profile Signer** -- the portal may still show the older
+   name **Trusted Signing Certificate Profile Signer**, or **Code Signing
+   Signer**; they are the same role. On the *Members* tab set "Assign access
+   to" = **User, group, or service principal**, then **+ Select members** and
+   search for the app registration by its display name. Review + assign.
+
+   Account scope covers every certificate profile under it, and is the only
+   scope the portal offers. Per-profile scope exists but is Azure CLI only:
+
+   ```bash
+   az role assignment create      --assignee <service-principal-object-id>      --role "Artifact Signing Certificate Profile Signer"      --scope "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CodeSigning/codeSigningAccounts/<account>/certificateProfiles/<profile>"
+   ```
+
+   Account scope is fine here -- there is one profile.
 
 ---
 
@@ -57,11 +70,19 @@ GitHub repo → **Settings → Secrets and variables → Actions**.
 
 ### Tab: Secrets
 
-| Name | Value | Where it comes from |
+| Name | Value | Exact portal location |
 |---|---|---|
-| `AZURE_TENANT_ID` | Directory (tenant) ID | Entra ID app registration overview |
-| `AZURE_CLIENT_ID` | Application (client) ID | Entra ID app registration overview |
-| `AZURE_CLIENT_SECRET` | client secret **value** (not the secret ID) | Step 4 |
+| `AZURE_TENANT_ID` | **Directory (tenant) ID** | Entra ID -> App registrations -> your app -> **Overview** |
+| `AZURE_CLIENT_ID` | **Application (client) ID** -- *not* the Object ID | same Overview blade |
+| `AZURE_CLIENT_SECRET` | the secret's **Value** column -- *not* the Secret ID | that app -> **Certificates & secrets** -> Client secrets |
+
+The secret **Value** is shown in full only immediately after you create it.
+Once the blade masks it, it is unrecoverable -- delete that secret and create a
+new one. The **Secret ID** beside it is a GUID, is not a credential, and fails
+auth if passed as `AZURE_CLIENT_SECRET`.
+
+The tenant ID is also at Entra ID -> **Overview** -> Tenant ID; it is the same
+for every app in the directory.
 
 That is the whole handoff. No code change is required — `electron-builder.config.js`
 reads all six from the environment.
@@ -127,6 +148,19 @@ GitHub Actions secrets, and in a terminal session only when hand-verifying.
 
 ---
 
+## Pre-flight checklist
+
+Confirm all five before the first tagged release. Any one of them missing
+produces a 403 at sign time, and the error message does not distinguish
+between them.
+
+- [ ] Identity validation status reads **Completed**.
+- [ ] The service principal holds **Artifact Signing Certificate Profile
+      Signer** on the signing account.
+- [ ] Account name matches exactly, case included.
+- [ ] Certificate profile name matches exactly.
+- [ ] Endpoint region matches where the account was created.
+
 ## Cutting a release
 
 ```bash
@@ -148,7 +182,24 @@ what keeps the alpha labelled as an alpha.
   interstitial for a while. Do not treat that as a signing failure.
 - **Client secrets expire** (24 months maximum, often defaulted to 6). A release
   that suddenly fails auth a year from now is usually this.
-- **Role scope.** The signer role must be on the certificate profile, not just
-  the account.
+- **Wrong role.** `Contributor` and `Owner` do **not** grant signing -- see the
+  permissions matrix in the Microsoft tutorial. Neither does **Artifact Signing
+  Identity Verifier**, which only manages identity validation. Holding the
+  Verifier role but not the Signer role is the most commonly reported cause of
+  a 403 at sign time.
+- **Role propagation.** Allow a few minutes after assigning before the first
+  signing attempt.
+- **Identity validation must read Completed.** Pending or in-progress blocks
+  signing even with the role correctly assigned.
 - **Region mismatch.** The endpoint region must match where the account was
   created, or signing 404s.
+
+---
+
+## References
+
+- [Tutorial: Assign roles in Artifact Signing](https://learn.microsoft.com/en-us/azure/artifact-signing/tutorial-assign-roles)
+  — role names and the permissions matrix showing that Contributor/Owner do not
+  grant signing.
+- [Artifact Signing resources and roles](https://learn.microsoft.com/en-us/azure/artifact-signing/concept-resources-roles)
+- [Artifact Signing FAQ](https://learn.microsoft.com/en-us/azure/artifact-signing/faq)
